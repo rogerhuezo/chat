@@ -444,6 +444,31 @@ const handleChat = async (event) => {
     }
   }
 
+  // ── Medium-confidence "did you mean?" clarification prompt ─────────────────
+  // If still FallbackIntent and at least one alternative scores 0.4-0.6,
+  // prompt the user with options (only on first message, not mid-conversation).
+  if (intent === 'FallbackIntent' && !prevState && event.interpretations?.length) {
+    const mediumAlternatives = event.interpretations
+      .filter(i => i.intent?.name !== 'FallbackIntent' && (i.nluConfidence || 0) > 0.4);
+    if (mediumAlternatives.length) {
+      console.log(`[chatHandler] medium-confidence alternatives detected — showing clarification prompt`);
+      const clarificationMsg = "I'm not sure I understood correctly. Did you mean:\n1\uFE0F\u20E3 Report an IT issue (create a ticket)\n2\uFE0F\u20E3 Password/account help (Okta)\n3\uFE0F\u20E3 Check ticket status\n4\uFE0F\u20E3 Something else\n\nPlease reply with a number or describe your issue.";
+      return {
+        sessionState: {
+          sessionAttributes: { ...resolvedAttrs, conversationState: 'AWAITING_CLARIFICATION' },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'InProgress',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: clarificationMsg }]
+      };
+    }
+  }
+
   let interactionAttrs = {};
   if (!attrs.serviceNowInteractionId) {
     try {
@@ -618,6 +643,94 @@ const handleChat = async (event) => {
   // ── End v1.2.0 AWAITING_OKTA_TRANSFER_CONFIRM ─────────────────────────────
 
   // ══════════════════════════════════════════════════════════════════════════
+  // AWAITING_CLARIFICATION — "did you mean?" response handler
+  // ══════════════════════════════════════════════════════════════════════════
+  if (prevState === 'AWAITING_CLARIFICATION') {
+    console.log(`[chatHandler] AWAITING_CLARIFICATION — response: "${msgLower}"`);
+    const trimmed = msgLower.trim();
+
+    if (trimmed === '1') {
+      // Report an IT issue -> ask for description
+      console.log(`[chatHandler] clarification choice 1 → AWAITING_DESCRIPTION`);
+      return {
+        sessionState: {
+          sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'InProgress',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: getMsg(lang, MESSAGES.describeIssue) }]
+      };
+    }
+
+    if (trimmed === '2') {
+      // Password/account help -> Okta
+      console.log(`[chatHandler] clarification choice 2 → Okta handler`);
+      const oktaResponse = await dispatchOkta({
+        event, sessionAttrs, msgLower, message, lang, countryCode, intent,
+        doTicketLookup
+      });
+      if (oktaResponse) return oktaResponse;
+      // If Okta didn't handle, fall through to idle
+    }
+
+    if (trimmed === '3') {
+      // Check ticket status
+      console.log(`[chatHandler] clarification choice 3 → GetIncidentStatus`);
+      const { handleGetIncidentStatus } = require('./incidentHandler');
+      const statusResult = await handleGetIncidentStatus({
+        ...event,
+        contactAttributes: sessionAttrs
+      });
+      const content = statusResult.response || statusResult.botResponse || getMsg(lang, {
+        en: 'I couldn\'t retrieve your tickets.',
+        es: 'No pude recuperar tus tickets.',
+        pt: 'Não consegui recuperar seus tickets.',
+        fr: 'Je n\'ai pas pu récupérer vos tickets.',
+        de: 'Ich konnte Ihre Tickets nicht abrufen.'
+      });
+      try { await appendTurn(sessionAttrs, event, content); } catch (e) { /* non-fatal */ }
+      return {
+        sessionState: {
+          sessionAttributes: {
+            ...sessionAttrs,
+            ...(statusResult.attributesToSet || {}),
+            conversationState: 'IDLE'
+          },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'InProgress',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content }]
+      };
+    }
+
+    // "4" or anything else -> ask for more detail
+    console.log(`[chatHandler] clarification choice 4/other → IDLE, ask for detail`);
+    return {
+      sessionState: {
+        sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: {
+          name             : 'FallbackIntent',
+          slots            : {},
+          state            : 'InProgress',
+          confirmationState: 'None'
+        }
+      },
+      messages: [{ contentType: 'PlainText', content: 'Please describe your issue in more detail and I\'ll do my best to help.' }]
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // PRIORITY 2 — STATUS LOOKUP
   // ══════════════════════════════════════════════════════════════════════════
   const hasStatusWord = STATUS_LOOKUP_WORDS.some(w => msgLower.includes(w));
@@ -661,11 +774,13 @@ const handleChat = async (event) => {
   const isAccessRequest = ACCESS_REQUEST_PATTERNS.some(p => p.test(message));
   if (isAccessRequest) {
     console.log(`[chatHandler] access request guard → catalog: "${message}"`);
-    return handleCatalogRequest({
+    const accessResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    if (accessResult) return accessResult;
+    // Fall through to KB if catalog returns null
   }
 
   // ══════════════════════════════════════════════════════════════════════════
