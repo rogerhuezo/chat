@@ -43,7 +43,8 @@ const {
 
 const OKTA_TRIGGER_KEYWORDS = [
   // English
-  'okta', 'password reset', 'reset password', 'unlock account',
+  'okta', 'ockta', 'octa', 'oktra', 'otka',
+  'password reset', 'reset password', 'unlock account',
   'account locked', 'account unlock', 'reset account', 'account reset',
   'reset factors', 'mfa reset', 'locked out',
   // English — broader password/login issues

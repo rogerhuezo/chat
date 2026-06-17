@@ -34,7 +34,8 @@ const SNOW_NUMBER_REGEX = /\b(INC|RITM|REQ|PRB|CHG|TASK|SCTASK|IMS|TKT|WO|WTASK)
 const STATUS_LOOKUP_WORDS = [
   'check', 'status', 'look up', 'lookup', 'find', 'search',
   'what is', 'whats', 'where is', 'update on', 'any update',
-  'progress', 'follow up', 'followup', 'open', 'closed', 'resolved'
+  'progress', 'follow up', 'followup', 'open', 'closed', 'resolved',
+  'reopen', 're-open', 'reopened', 'reactivate'
 ];
 
 const LOOKUP_OVERRIDE_REGEX = /^(can you )?(check|look up|lookup|find|search|status|ver|revisar|buscar|verificar)[\s\w]*\d+/i;
@@ -98,21 +99,33 @@ const TRANSFER_TRIGGER_WORDS = [
   'live agent', 'human', 'real person', 'transfer', 'live support',
   'speak to someone', 'talk to someone', 'talk to a person',
   'talk to an agent', 'speak to an agent', 'need an agent', 
+  // EN — additional
+  'analyst', 'connect me', 'put me through', 'escalate', 'let me talk to',
+  'i give up', 'this is useless', 'this isnt helping', 'this isn\'t helping',
+  'pick up the phone', 'answer the phone', 'call me', 'someone help me',
+  'i need real help', 'can someone call me',
   // ES
   'agente', 'persona real', 'transferir', 'soporte en vivo', 'hablar con alguien',
   'necesito a alguien', 'necesito hablar con alguien', 'necesito un agente',
   'quiero hablar con alguien', 'quiero un agente', 'conectar con agente',
   'hablar con una persona', 'con alguien', 'un humano', 'soporte humano',
+  // IT — Italian
+  'analista', 'mettimi in contatto', 'collegami', 'trasferire',
+  'ho bisogno di aiuto', 'parlare con qualcuno',
   // PT
   'pessoa real', 'suporte ao vivo', 'falar com alguem',
   'preciso de alguem', 'preciso falar com alguem', 'quero um agente',
   'falar com uma pessoa',
+  // PT — additional
+  'conectar com analista', 'analista por favor',
   // FR
   'personne réelle', 'transférer', 'support en direct', 'parler à quelqu\'un',
   'besoin de quelqu\'un', 'un agent humain',
   // DE
   'echte person', 'weiterleiten', 'live-support', 'mit jemandem sprechen',
-  'ich brauche jemanden', 'einen agenten'
+  'ich brauche jemanden', 'einen agenten',
+  // DE — additional
+  'verbinden sie mich', 'analyst'
 ];
 
 const PURE_REQUEST_PATTERNS = [
@@ -131,6 +144,9 @@ const PURE_REQUEST_PATTERNS = [
 ];
 
 const SOCIAL_PATTERNS = [
+  'hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening',
+  'hola', 'buenos dias', 'buenas tardes', 'bom dia', 'boa tarde',
+  'bonjour', 'guten tag',
   'ok', 'okay', 'ok thanks', 'okay thanks', 'no thanks', 'no thank you',
   'thanks', 'thank you', 'thank you so much', 'got it', 'sounds good',
   'great', 'perfect', 'awesome', 'cool', 'sure', 'yes', 'no', 'nope', 'yep',
@@ -812,6 +828,22 @@ const handleChat = async (event) => {
 
   if (isSocial) {
 
+    // ── Greeting handler — welcome message when no prior state ──────────────
+    const GREETINGS = ['hi', 'hello', 'hey', 'good morning', 'good afternoon',
+      'good evening', 'hola', 'buenos dias', 'buenas tardes', 'bom dia',
+      'boa tarde', 'bonjour', 'guten tag'];
+    const isGreeting = GREETINGS.some(g => msgLower === g || msgLower.startsWith(g + ' '));
+
+    if (isGreeting && !prevState) {
+      console.log(`[chatHandler] greeting detected — sending welcome`);
+      const welcomeMsg = getMsg(lang, {
+        en: `Hello${firstName ? ' ' + firstName : ''}! 👋 How can I help you today?\n\nI can assist with:\n• **Password/account issues** — Okta resets & unlocks\n• **IT problems** — troubleshooting & ticket creation\n• **Ticket status** — check existing requests\n• **Software/hardware** — catalog requests\n• **Talk to an agent** — live IT support\n\nJust describe what you need!`,
+        es: `¡Hola${firstName ? ' ' + firstName : ''}! 👋 ¿Cómo puedo ayudarte hoy?\n\nPuedo asistirte con:\n• **Problemas de contraseña/cuenta** — resets y desbloqueos de Okta\n• **Problemas de TI** — solución de problemas y creación de tickets\n• **Estado de tickets** — consultar solicitudes existentes\n• **Software/hardware** — solicitudes del catálogo\n• **Hablar con un agente** — soporte de TI en vivo\n\n¡Solo describe lo que necesitas!`
+      });
+      try { await appendTurn(sessionAttrs, event, welcomeMsg); } catch (e) { /* non-fatal */ }
+      return lexOpen(welcomeMsg, { ...sessionAttrs, conversationState: 'IDLE' });
+    }
+
     if (prevState === 'AWAITING_RESOLUTION') {
       const isPositive = POSITIVE_RESOLUTION_WORDS.some(p =>
         msgLower === p || msgLower.includes(p)
@@ -1104,6 +1136,32 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
   // INTENT ROUTING
   // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Guard: "reopen" requests should NOT create new tickets ──────────────────
+  const isReopenRequest = /\b(reopen|re-open|reactivate|re-activate)\b/i.test(message);
+  if (INCIDENT_INTENTS.includes(intent) && isReopenRequest) {
+    console.log(`[chatHandler] LogIncident intercepted — reopen request detected: "${message}"`);
+    const kbResult = await handleKnowledgeQuery(message, sessionAttrs);
+    const kbContent = kbResult?.response || kbResult?.botResponse ||
+      getMsg(lang, {
+        en: 'To reopen a closed ticket, you\'ll need to contact the IT Service Desk directly or submit a new request referencing the original ticket number. Would you like me to connect you with an agent?',
+        es: 'Para reabrir un ticket cerrado, deberás contactar directamente al Service Desk de TI o enviar una nueva solicitud referenciando el número del ticket original. ¿Te gustaría que te conectara con un agente?'
+      });
+    try { await appendTurn(sessionAttrs, event, kbContent); } catch (e) { /* non-fatal */ }
+    return {
+      sessionState: {
+        sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_RESOLUTION' },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: {
+          name: 'FallbackIntent',
+          slots: {},
+          state: 'Fulfilled',
+          confirmationState: 'None'
+        }
+      },
+      messages: [{ contentType: 'PlainText', content: kbContent }]
+    };
+  }
 
   if (CATALOG_INTENTS.includes(intent)) {
     return handleCatalogRequest({

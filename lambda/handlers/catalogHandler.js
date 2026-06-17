@@ -33,7 +33,11 @@ const BREAKFIX_PATTERNS = [
   /\bestoy\s+teniendo\s+problemas\b/i,
   // PT
   /\bestou\s+(tendo|com)\s+(um\s+)?erro\b/i,
-  /\bnão\s+funciona\b/i
+  /\bnão\s+funciona\b/i,
+  // Troubleshooting context — need X to log in / access
+  /\bso\s+(i|we)\s+can\s+(access|use|open|log\s+in|login|get\s+into)\b/i,
+  /\bneed\s+.*\s+to\s+(log\s+in|login|access|get\s+in)\b/i,
+  /\badmin.*to\s+(log\s+in|login|access)\b/i
 ];
 
 // ── How-to patterns always route to KB (Bedrock), never to catalog ────────────
