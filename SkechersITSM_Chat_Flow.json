@@ -1,0 +1,1533 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "8b2f025e-cd00-4ffe-821a-76a3f9dda572",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 14.4,
+      "y": 20
+    },
+    "ActionMetadata": {
+      "181122dd-698c-46e0-9f08-b7122ae40bc3": {
+        "position": {
+          "x": 1800,
+          "y": 300
+        }
+      },
+      "6c0df77b-026a-4d97-90d7-12231484601d": {
+        "position": {
+          "x": 1800,
+          "y": 500
+        }
+      },
+      "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d": {
+        "position": {
+          "x": 1800,
+          "y": 100
+        }
+      },
+      "e1b2c3d4-0005-0005-0005-e1b2c3d40005": {
+        "position": {
+          "x": 2100,
+          "y": 300
+        }
+      },
+      "1a0f46af-ad2a-41c2-8c36-40bc8b2e5087": {
+        "position": {
+          "x": 220,
+          "y": 620
+        },
+        "dynamicParams": []
+      },
+      "0133c3c5-c241-4ee4-adda-5140467ea59a": {
+        "position": {
+          "x": 404,
+          "y": 215.2
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "8584cc6c-a7e6-4054-997f-52f2c06b9117",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "customerEmail"
+          }
+        ]
+      },
+      "a08aef0b-2f1b-4207-8184-0826e2907adf": {
+        "position": {
+          "x": 440,
+          "y": 25.6
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "7eeb1b76-d612-452a-8630-8da47b51ffb2",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "$.Attributes.HostedWidget-countryCode"
+          }
+        ]
+      },
+      "3f68542f-15f1-4bdb-8ec5-35b3a21ace50": {
+        "position": {
+          "x": 1540,
+          "y": 300
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "EU Service Chat"
+          }
+        },
+        "queue": {
+          "text": "EU Service Chat"
+        }
+      },
+      "31ab221c-e5ac-4a2c-899d-5532f8a36223": {
+        "position": {
+          "x": 1540,
+          "y": 500
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "Latam Service Chat"
+          }
+        },
+        "queue": {
+          "text": "Latam Service Chat"
+        }
+      },
+      "7d8b11fa-8e03-4ae2-9daa-81e95f487c47": {
+        "position": {
+          "x": 1561.6,
+          "y": 68.8
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "NA Service Chat"
+          }
+        },
+        "queue": {
+          "text": "NA Service Chat"
+        }
+      },
+      "290da76a-1a67-44ba-99d4-8cba27511c47": {
+        "position": {
+          "x": 191.2,
+          "y": 268
+        },
+        "parameters": {
+          "TextToSpeechVoice": {
+            "languageCode": "en-US"
+          }
+        },
+        "overrideConsoleVoice": true
+      },
+      "8b2f025e-cd00-4ffe-821a-76a3f9dda572": {
+        "position": {
+          "x": -56,
+          "y": 471.2
+        }
+      },
+      "f1b2c3d4-0006-0006-0006-f1b2c3d40006": {
+        "position": {
+          "x": 472.8,
+          "y": 928
+        }
+      },
+      "10b574b9-4853-4db4-98f2-e123195c2854": {
+        "position": {
+          "x": 1051.2,
+          "y": 801.6
+        },
+        "parameters": {
+          "EventHooks": {
+            "CustomerRemaining": {
+              "displayName": "ChatDisconnectFlow"
+            }
+          }
+        },
+        "contactFlow": {
+          "text": "ChatDisconnectFlow",
+          "id": "arn:aws:connect:us-east-1:603611621695:instance/21a78c01-6347-4b73-ac10-05abe6553f35/contact-flow/ee2a8d48-a5f5-4540-9e59-3a0c6fef0b48"
+        }
+      },
+      "4202aff7-5603-47c4-915f-79c7fa444a63": {
+        "position": {
+          "x": 1232.8,
+          "y": 81.6
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "954238f8-da5c-416c-a80c-55b4a9f17da6",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "North America"
+          },
+          {
+            "id": "6eedc8b3-e3a7-4f82-844f-00b25342146d",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Europe"
+          },
+          {
+            "id": "4a9ee1d2-7327-4fe1-9b08-6edcf0394f6a",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Asia"
+          },
+          {
+            "id": "e6b5aed8-c26f-4c7a-851d-7c82f9daa5df",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Latin America"
+          },
+          {
+            "id": "374b4097-f05f-4156-8d45-333abb8d913b",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "APAC"
+          }
+        ]
+      },
+      "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9": {
+        "position": {
+          "x": -39.2,
+          "y": 261.6
+        },
+        "dynamicParams": []
+      },
+      "58e0441d-0b3d-447e-b509-2c008966f7c6": {
+        "position": {
+          "x": 665.6,
+          "y": 166.4
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "b897bf58-aaa3-416d-b920-3b7e20138704",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Austria"
+          },
+          {
+            "id": "e03ec896-cda1-4a83-aa1b-7a555f92feff",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Belgium"
+          },
+          {
+            "id": "c62fc5f0-10a7-48b2-b5bf-19fc4ed26dc3",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Bosnia and Herzegovina"
+          },
+          {
+            "id": "f8d35632-1226-48eb-b027-081a909fc444",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Brazil"
+          },
+          {
+            "id": "c3fe64d3-1726-48f8-b0fd-90b5ce0f94f3",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Canada"
+          },
+          {
+            "id": "24959e4d-b951-440f-a578-011aa46ce7b0",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Chile"
+          },
+          {
+            "id": "6994a4a3-dd9a-4922-adda-fd72b6f62df5",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "China"
+          },
+          {
+            "id": "db415e87-b654-4b35-be61-845bcb0a2ac8",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Colombia"
+          },
+          {
+            "id": "8cdfbe64-e59f-4203-9b86-ee7b73df8964",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Costa Rica"
+          },
+          {
+            "id": "a22c2fbd-a729-4a73-b3bb-b29a82d81d96",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Czech Republic"
+          },
+          {
+            "id": "2d51f516-d3e0-412d-bd72-79b024c9108b",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Denmark"
+          },
+          {
+            "id": "d46321e0-8759-4532-8e6a-bf60b76d84f3",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Finland"
+          },
+          {
+            "id": "036b6e9d-6b3b-4ed0-9f35-fe70765ef55e",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "France"
+          },
+          {
+            "id": "8ee43f01-4104-4afe-b92b-c3b431900896",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Germany"
+          },
+          {
+            "id": "9bdf2ca2-dda7-4c9e-963e-22f6cc381bcf",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Gibraltar"
+          },
+          {
+            "id": "104d2ece-231b-448d-969a-63d575d7030a",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Greece"
+          },
+          {
+            "id": "d727a053-f274-4715-96b5-efa5f342985b",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Hong Kong"
+          },
+          {
+            "id": "cbca1fa5-b124-4b33-9e9b-6f8a5907d13c",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Hungary"
+          },
+          {
+            "id": "934f8ef2-c23a-4480-b75b-8028ecfaef53",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "India"
+          },
+          {
+            "id": "242d8164-6222-47c1-8036-0c6942a22742",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Indonesia"
+          },
+          {
+            "id": "6ac11deb-b236-449a-a42d-eb04a44f1e0e",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Ireland"
+          },
+          {
+            "id": "8f30ed09-116f-40f5-ac7f-e11948fbf59e",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Israel"
+          },
+          {
+            "id": "a590df6b-ef3a-408f-92d4-1dcfd2cd7f6d",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Italy"
+          },
+          {
+            "id": "8dfbf27d-e4f4-45bb-932c-9cfb87bb2de2",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Japan"
+          },
+          {
+            "id": "0499644d-4a8c-4440-bb15-1ad668e983f0",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Korea"
+          },
+          {
+            "id": "5c1ea24c-b8e2-48f2-8743-5678f0214098",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Mexico"
+          },
+          {
+            "id": "9093340e-525e-429b-98a3-a2657a9f74e3",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Netherlands"
+          },
+          {
+            "id": "4ff54e77-cbe3-4880-8801-5459509bd457",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Norway"
+          },
+          {
+            "id": "872eb6a9-25f7-4a46-b752-7fbff234160d",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Panama"
+          },
+          {
+            "id": "ebf76dc9-7a0c-4405-9303-03a9082b2a5a",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Peru"
+          },
+          {
+            "id": "b2dd11b8-370f-4ca5-829e-243c1f620e9b",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Philippines"
+          },
+          {
+            "id": "fb11fb90-1b8b-4899-b183-2dff80c20e5f",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Poland"
+          },
+          {
+            "id": "28bfc282-c0c6-492d-a669-ae4150130cdc",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Portugal"
+          },
+          {
+            "id": "a9a70b5b-df67-40b0-a73e-573c0754bc63",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Romania"
+          },
+          {
+            "id": "d373cfce-ab3d-448c-8edf-128cb6b89233",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Serbia"
+          },
+          {
+            "id": "29a70ea5-06c0-4f54-97c9-80fa7d3b80d2",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Spain"
+          },
+          {
+            "id": "a0395f9b-426b-472b-bfe1-628af13856ed",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Sweden"
+          },
+          {
+            "id": "c88a43c5-7768-48f3-89fd-aa9d5939054b",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Switzerland"
+          },
+          {
+            "id": "0a32d636-f69d-4fd9-82fe-75d486da4829",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Taiwan"
+          },
+          {
+            "id": "e077d92e-5be3-4721-a6e7-d69ee59e2195",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Turkey"
+          },
+          {
+            "id": "6911c894-d678-4716-83b3-3e517388d3f0",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "United Kingdom"
+          },
+          {
+            "id": "2d470dce-835d-4600-bec0-f1a9e037418d",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "United States"
+          },
+          {
+            "id": "4378d357-e46d-4715-b35e-de4554c0efe9",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Vietnam"
+          }
+        ]
+      },
+      "83403d84-2d8b-4e49-9bd2-b0dc68268c6f": {
+        "position": {
+          "x": 110.4,
+          "y": 24.8
+        },
+        "dynamicParams": []
+      },
+      "b1b2c3d4-0002-0002-0002-b1b2c3d40002": {
+        "position": {
+          "x": 960,
+          "y": 22.4
+        },
+        "parameters": {
+          "LexV2Bot": {
+            "AliasArn": {
+              "displayName": "live",
+              "useLexBotDropdown": true,
+              "lexV2BotName": "SkechersITSM_EN"
+            }
+          },
+          "LexTimeoutSeconds": {
+            "Text": {
+              "unit": 60
+            }
+          }
+        },
+        "dynamicMetadata": {
+          "Details": false,
+          "Email": false,
+          "Language": false,
+          "CountryName": false,
+          "Region": false,
+          "UserInfo": false,
+          "CountryCode": false,
+          "Name": false
+        },
+        "useLexBotDropdown": true,
+        "lexV2BotName": "SkechersITSM_EN",
+        "lexV2BotAliasName": "live",
+        "conditionMetadata": [
+          {
+            "id": "22615be3-3291-433b-b86e-f4e824521a46",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "TransferToAgent"
+          },
+          {
+            "id": "94720e00-4cd3-484d-a9f1-d70f583eb6f0",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "Logincident"
+          },
+          {
+            "id": "dc112445-e65a-4291-a85f-e4399bf7e3b5",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "FallbackIntent"
+          },
+          {
+            "id": "aad6fc67-044f-4557-ab12-36ac66d4b818",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "GetIncidentStatus"
+          }
+        ]
+      }
+    },
+    "Annotations": [],
+    "name": "SkechersITSM_Chat_Flow",
+    "description": "",
+    "type": "contactFlow",
+    "status": "published",
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {},
+      "Identifier": "181122dd-698c-46e0-9f08-b7122ae40bc3",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "6c0df77b-026a-4d97-90d7-12231484601d",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "x-amz-lex:accept-content-types": "CustomPayload,PlainText"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "1a0f46af-ad2a-41c2-8c36-40bc8b2e5087",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "0133c3c5-c241-4ee4-adda-5140467ea59a",
+        "Errors": [
+          {
+            "NextAction": "0133c3c5-c241-4ee4-adda-5140467ea59a",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.customerEmail"
+      },
+      "Identifier": "0133c3c5-c241-4ee4-adda-5140467ea59a",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "a08aef0b-2f1b-4207-8184-0826e2907adf",
+        "Conditions": [
+          {
+            "NextAction": "a08aef0b-2f1b-4207-8184-0826e2907adf",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "customerEmail"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a08aef0b-2f1b-4207-8184-0826e2907adf",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.countryCode"
+      },
+      "Identifier": "a08aef0b-2f1b-4207-8184-0826e2907adf",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "58e0441d-0b3d-447e-b509-2c008966f7c6",
+        "Conditions": [
+          {
+            "NextAction": "58e0441d-0b3d-447e-b509-2c008966f7c6",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "$.Attributes.HostedWidget-countryCode"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "58e0441d-0b3d-447e-b509-2c008966f7c6",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:603611621695:instance/21a78c01-6347-4b73-ac10-05abe6553f35/queue/6eea267f-4f6b-4163-ab6b-cce76be0e08c"
+      },
+      "Identifier": "3f68542f-15f1-4bdb-8ec5-35b3a21ace50",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "181122dd-698c-46e0-9f08-b7122ae40bc3",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:603611621695:instance/21a78c01-6347-4b73-ac10-05abe6553f35/queue/e1278f69-6dde-4470-8750-3edff01a2145"
+      },
+      "Identifier": "31ab221c-e5ac-4a2c-899d-5532f8a36223",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "6c0df77b-026a-4d97-90d7-12231484601d",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:603611621695:instance/21a78c01-6347-4b73-ac10-05abe6553f35/queue/75f50809-3bcd-4428-8f57-b81777ebdf35"
+      },
+      "Identifier": "7d8b11fa-8e03-4ae2-9daa-81e95f487c47",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d",
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "TextToSpeechVoice": "Danielle",
+        "TextToSpeechEngine": "Neural",
+        "TextToSpeechStyle": "None"
+      },
+      "Identifier": "290da76a-1a67-44ba-99d4-8cba27511c47",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Transitions": {
+        "NextAction": "1a0f46af-ad2a-41c2-8c36-40bc8b2e5087",
+        "Errors": [
+          {
+            "NextAction": "1a0f46af-ad2a-41c2-8c36-40bc8b2e5087",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Identifier": "8b2f025e-cd00-4ffe-821a-76a3f9dda572",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Transitions": {
+        "NextAction": "290da76a-1a67-44ba-99d4-8cba27511c47"
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "We're sorry, something went wrong. Please try again later."
+      },
+      "Identifier": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+        "Errors": [
+          {
+            "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "EventHooks": {
+          "CustomerRemaining": "arn:aws:connect:us-east-1:603611621695:instance/21a78c01-6347-4b73-ac10-05abe6553f35/contact-flow/ee2a8d48-a5f5-4540-9e59-3a0c6fef0b48"
+        }
+      },
+      "Identifier": "10b574b9-4853-4db4-98f2-e123195c2854",
+      "Type": "UpdateContactEventHooks",
+      "Transitions": {
+        "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+        "Errors": [
+          {
+            "NextAction": "e1b2c3d4-0005-0005-0005-e1b2c3d40005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.transferRegion"
+      },
+      "Identifier": "4202aff7-5603-47c4-915f-79c7fa444a63",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "7d8b11fa-8e03-4ae2-9daa-81e95f487c47",
+        "Conditions": [
+          {
+            "NextAction": "7d8b11fa-8e03-4ae2-9daa-81e95f487c47",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "North America"
+              ]
+            }
+          },
+          {
+            "NextAction": "3f68542f-15f1-4bdb-8ec5-35b3a21ace50",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Europe"
+              ]
+            }
+          },
+          {
+            "NextAction": "3f68542f-15f1-4bdb-8ec5-35b3a21ace50",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Asia"
+              ]
+            }
+          },
+          {
+            "NextAction": "31ab221c-e5ac-4a2c-899d-5532f8a36223",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Latin America"
+              ]
+            }
+          },
+          {
+            "NextAction": "3f68542f-15f1-4bdb-8ec5-35b3a21ace50",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "APAC"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "7d8b11fa-8e03-4ae2-9daa-81e95f487c47",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "lexLocale": "es_US"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+        "Errors": [
+          {
+            "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.countryCode"
+      },
+      "Identifier": "58e0441d-0b3d-447e-b509-2c008966f7c6",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+        "Conditions": [
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Austria"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Belgium"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Bosnia and Herzegovina"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Brazil"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Canada"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Chile"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "China"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Colombia"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Costa Rica"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Czech Republic"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Denmark"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Finland"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "France"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Germany"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Gibraltar"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Greece"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Hong Kong"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Hungary"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "India"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Indonesia"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Ireland"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Israel"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Italy"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Japan"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Korea"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Mexico"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Netherlands"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Norway"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Panama"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Peru"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Philippines"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Poland"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Portugal"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Romania"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Serbia"
+              ]
+            }
+          },
+          {
+            "NextAction": "df1cf49f-7272-4cd3-b5b2-5cf1f9428aa9",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Spain"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Sweden"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Switzerland"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Taiwan"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Turkey"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "United Kingdom"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "United States"
+              ]
+            }
+          },
+          {
+            "NextAction": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Vietnam"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "lexLocale": "en_US"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "83403d84-2d8b-4e49-9bd2-b0dc68268c6f",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+        "Errors": [
+          {
+            "NextAction": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Hello How can I help you today?\n\nHi! $.Attributes.HostedWidget-customerName!  I'm your Skechers IT Assistant.\n\nI can help with IT questions, software requests, tickets, and \nOkta resets (Store employees).\n\nWhat do you need help with today?",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:603611621695:bot-alias/TY4JYUWM4S/08ODLCJXGH"
+        },
+        "LexSessionAttributes": {
+          "Details": "$.CustomerEndpoint.Address",
+          "Email": "$.Attributes.HostedWidget-customerEmail",
+          "Language": "$.External.Language",
+          "CountryName": "$.External.CountryName",
+          "Region": "$.Lex.SessionAttributes.transferRegion",
+          "UserInfo": "$.External.UserInfo",
+          "CountryCode": "$.Attributes.HostedWidget-countryCode",
+          "Name": "$.Attributes.HostedWidget-customerName"
+        },
+        "LexTimeoutSeconds": {
+          "Text": "300"
+        }
+      },
+      "Identifier": "b1b2c3d4-0002-0002-0002-b1b2c3d40002",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+        "Conditions": [
+          {
+            "NextAction": "4202aff7-5603-47c4-915f-79c7fa444a63",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TransferToAgent"
+              ]
+            }
+          },
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Logincident"
+              ]
+            }
+          },
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          },
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "GetIncidentStatus"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    }
+  ]
+}
