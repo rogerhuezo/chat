@@ -404,6 +404,7 @@ const dispatchTransfer = async ({ event, sessionAttrs, lang, firstName,
 
 // ── Main handler ───────────────────────────────────────────────────────────────
 const handleChat = async (event) => {
+  try {
   let intent    = event.intent  || '';
   const message   = (event.userMessage || event.inputTranscript || event.ticketTitle || '').trim();
   const attrs     = event.contactAttributes || {};
@@ -442,6 +443,12 @@ const handleChat = async (event) => {
       console.log(`[chatHandler] FallbackIntent override → ${best.intent.name} (confidence: ${best.nluConfidence})`);
       intent = best.intent.name;
     }
+  }
+
+  // ── Keyword-based Okta override — catches verbose messages that Lex misses ──
+  if (intent === 'FallbackIntent' && shouldHandleOkta(msgLower, resolvedAttrs)) {
+    console.log(`[chatHandler] FallbackIntent → OktaAccountManagement (keyword match)`);
+    intent = 'OktaAccountManagement';
   }
 
   // ── Medium-confidence "did you mean?" clarification prompt ─────────────────
@@ -1303,6 +1310,23 @@ const handleChat = async (event) => {
     },
     messages: [{ contentType: 'PlainText', content: defaultContent }]
   };
+  } catch (unexpectedErr) {
+    console.error(`[chatHandler] UNEXPECTED ERROR: ${unexpectedErr.message}`, unexpectedErr.stack);
+    const errorAttrs = event.contactAttributes || event.sessionState?.sessionAttributes || {};
+    return {
+      sessionState: {
+        sessionAttributes: { ...errorAttrs, conversationState: 'ERROR' },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: {
+          name             : 'FallbackIntent',
+          slots            : {},
+          state            : 'Fulfilled',
+          confirmationState: 'None'
+        }
+      },
+      messages: [{ contentType: 'PlainText', content: "I'm sorry, I encountered an unexpected issue. You can try rephrasing your request, or type \"agent\" to speak with someone from IT support." }]
+    };
+  }
 };
 
 module.exports = { handleChat };
