@@ -338,13 +338,33 @@ const dispatchOkta = async ({ event, sessionAttrs, msgLower, message, lang,
         console.warn(`[chatHandler] corporate Okta KB query failed (non-fatal): ${kbErr.message}`);
       }
 
-      // KB had no answer — transfer directly
-      console.log(`[chatHandler] corporate Okta: no KB answer — transferring directly`);
-      const directMsg = OKTA_MSG.corporateTransferDirect[l] ||
-        'Okta account management for corporate users is handled by the IT support team. Let me connect you with an agent right away.';
+      // KB had no answer — offer transfer instead of transferring directly
+      console.log(`[chatHandler] corporate Okta: no KB answer — offering transfer`);
+      const directMsg = getMsg(l, {
+        en: `I wasn't able to find a specific solution for that in our knowledge base, but I'd be happy to connect you with an IT support agent who can help.\n\nWould you like me to transfer you to a live agent?\n\nReply **yes** or **no**.`,
+        es: `No pude encontrar una solución específica para eso en nuestra base de conocimiento, pero con gusto puedo conectarte con un agente de soporte de TI que pueda ayudarte.\n\n¿Te gustaría que te transfiera a un agente en vivo?\n\nResponde **sí** o **no**.`,
+        pt: `Não consegui encontrar uma solução específica para isso em nossa base de conhecimento, mas ficarei feliz em conectá-lo com um agente de suporte de TI que possa ajudar.\n\nGostaria que eu o transferisse para um agente ao vivo?\n\nResponda **sim** ou **não**.`
+      });
 
       try { await appendTurn(sessionAttrs, event, directMsg); } catch (e) { /* non-fatal */ }
-      return dispatchTransfer({ event, sessionAttrs, lang, firstName: '', countryCode });
+
+      return {
+        sessionState: {
+          sessionAttributes: {
+            ...sessionAttrs,
+            conversationState   : 'AWAITING_OKTA_TRANSFER_CONFIRM',
+            oktaTransferPending : 'true'
+          },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'OktaAccountManagement',
+            slots            : {},
+            state            : 'InProgress',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: directMsg }]
+      };
     }
     // ── End v1.2.0 corporateFallback block ────────────────────────────────────
 
