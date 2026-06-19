@@ -1,0 +1,10 @@
+{
+  "name": "skx-chatlive-lambda",
+  "version": "1.0.0",
+  "description": "Skechers IT Helpdesk Chat Lambda",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
+  }
+}
