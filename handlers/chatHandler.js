@@ -374,7 +374,7 @@ const lexPos = (content, attrs) => ({
 
 // ── Shared POS dispatcher ─────────────────────────────────────────────────────
 const dispatchPos = async ({ event, sessionAttrs, msgLower, message, lang, countryCode }) => {
-  console.log(`[chatHandler] → posHandler: state="${sessionAttrs.posState || 'new'}"`);
+  console.log(`[chatHandler] → posHandler: POS issue detected`);
   try {
     const posResult = await handlePosStaffReset({
       attrs       : sessionAttrs,
@@ -384,14 +384,15 @@ const dispatchPos = async ({ event, sessionAttrs, msgLower, message, lang, count
       callerEmail : sessionAttrs.Email  || '',
       storeName   : sessionAttrs.Name   || '',
       region      : sessionAttrs.Region || getTransferRegion(countryCode),
-      countryCode : countryCode
+      countryCode,
+      interactionNumber: sessionAttrs.serviceNowInteractionNumber || ''
     });
 
     if (posResult.handled) {
       const updatedAttrs = { ...sessionAttrs, ...(posResult.sessionAttrs || {}) };
       try { await appendTurn(updatedAttrs, event, posResult.message); } catch (e) { /* non-fatal */ }
 
-      // If POS handler requests transfer (user not found → create incident + transfer)
+      // POS handler always requests transfer (create incident + transfer)
       if (posResult.transfer) {
         return dispatchTransfer({ event, sessionAttrs: updatedAttrs, lang, firstName: '', countryCode });
       }
