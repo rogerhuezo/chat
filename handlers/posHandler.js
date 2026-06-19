@@ -93,13 +93,13 @@ const MSG = {
   },
   intro: {
     en: (action) =>
-      `Got it — **POS ${action}**.\n\nPlease provide the employee POS login or staff code.\n\n_Examples: 51494, SKE51494, or the employee number_`,
+      `Got it — **POS ${action}**.\n\nPlease provide the employee number (numeric ID from Workday/HR).\n\n💡 **Tip:** This is the same employee number used in HR systems. For 5+ digit IDs, the POS login has an "SKE" prefix (e.g., employee 51494 → SKE51494). You can provide either format.`,
     es: (action) =>
-      `Entendido — **POS ${action}**.\n\nPor favor proporciona el login POS o código de empleado.\n\n_Ejemplos: 51494, SKE51494, o el número de empleado_`
+      `Entendido — **POS ${action}**.\n\nPor favor proporciona el número de empleado (ID numérico de Workday/RH).\n\n💡 **Tip:** Es el mismo número de empleado del sistema de RH. Para IDs de 5+ dígitos, el login POS tiene prefijo "SKE" (ej: empleado 51494 → SKE51494). Puedes proporcionar cualquier formato.`
   },
   askId: {
-    en: 'Please provide the employee POS login or staff code (e.g., 51494 or SKE51494).',
-    es: 'Por favor proporciona el login POS o código de empleado (ej: 51494 o SKE51494).'
+    en: 'Please provide the employee number (the same numeric ID used in Workday/HR, e.g., 51494 or 123456).\n\n💡 **Tip:** The POS login is the employee number. For IDs with 5+ digits, the system adds an "SKE" prefix automatically (e.g., employee 51494 → POS login SKE51494).',
+    es: 'Por favor proporciona el número de empleado (el mismo ID numérico usado en Workday/RH, ej: 51494 o 123456).\n\n💡 **Tip:** El login POS es el número de empleado. Para IDs de 5+ dígitos, el sistema agrega el prefijo "SKE" automáticamente (ej: empleado 51494 → login POS SKE51494).'
   },
   foundEmployee: {
     en: (action) => `Found the following employee for **POS ${action}**:`,
@@ -110,8 +110,8 @@ const MSG = {
     es: '\n¿Procedo con esta acción? Responde **sí** para confirmar o **no** para cancelar.'
   },
   notFound: {
-    en: (id) => `⚠️ POS user **${id}** was not found in Aptos One. Please verify the staff code.`,
-    es: (id) => `⚠️ El usuario POS **${id}** no fue encontrado en Aptos One. Verifica el código de empleado.`
+    en: (id) => `⚠️ POS user **${id}** was not found in Aptos One.\n\nPlease verify the employee number. The POS login is typically:\n• Employee number as-is (e.g., 1234)\n• With "SKE" prefix for 5+ digits (e.g., SKE51494)\n\nMake sure the employee has been onboarded in the HR system and that their data has synced to the POS.`,
+    es: (id) => `⚠️ El usuario POS **${id}** no fue encontrado en Aptos One.\n\nPor favor verifica el número de empleado. El login POS típicamente es:\n• El número de empleado tal cual (ej: 1234)\n• Con prefijo "SKE" para 5+ dígitos (ej: SKE51494)\n\nAsegúrate que el empleado esté registrado en el sistema de RH y que sus datos se hayan sincronizado con el POS.`
   },
 
   notFoundChoice: {
@@ -127,8 +127,8 @@ const MSG = {
     es: 'Por favor responde **sí** para continuar o **no** para cancelar.'
   },
   resultSuccess: {
-    en: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completed successfully.\n\nThe DCN file will sync to the store server shortly. The employee should be able to log in at the till within a few minutes.`,
-    es: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completado exitosamente.\n\nEl archivo DCN se sincronizará con el servidor de la tienda en breve. El empleado podrá iniciar sesión en el POS en unos minutos.`
+    en: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completed successfully.\n\nThe employee's POS login has been reset to the default password. They will be prompted to change it on first login at the register.\n\nThe DCN file will sync to the store server shortly. The employee should be able to log in at the till within a few minutes.`,
+    es: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completado exitosamente.\n\nEl login POS del empleado ha sido restablecido a la contraseña predeterminada. Se le pedirá que la cambie al iniciar sesión en el registro.\n\nEl archivo DCN se sincronizará con el servidor de la tienda en breve. El empleado podrá iniciar sesión en el POS en unos minutos.`
   },
   resultFailed: {
     en: (name, username, error) => `❌ **${name}** (POS: ${username}) — Failed: ${error}`,
