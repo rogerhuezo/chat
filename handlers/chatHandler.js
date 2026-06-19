@@ -625,7 +625,10 @@ const handleChat = async (event) => {
     const hasOktaOnlySignal = /\b(okta|mfa|factors|sso|single sign|email login|apps? login|computer login)\b/i.test(message);
     const hasPosOnlySignal  = /\b(pos|till|register|aptos|staff code)\b/i.test(message);
 
-    if (isPosKeywordToo && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
+    // If message has a clear POS signal, skip Okta entirely → let POS handler (Priority 1.2) handle it
+    if (hasPosOnlySignal && !hasOktaOnlySignal) {
+      console.log(`[chatHandler] POS-only signal detected in Okta block — skipping Okta, will route to POS`);
+    } else if (isPosKeywordToo && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
       // Ambiguous — ask user to clarify
       console.log(`[chatHandler] ambiguous Okta/POS — prompting disambiguation`);
       const disambigMsg = getMsg(lang, {
@@ -651,13 +654,14 @@ const handleChat = async (event) => {
         },
         messages: [{ contentType: 'PlainText', content: disambigMsg }]
       };
+    } else {
+      // No POS signal — dispatch to Okta
+      const oktaResponse = await dispatchOkta({
+        event, sessionAttrs, msgLower, message, lang, countryCode, intent,
+        doTicketLookup
+      });
+      if (oktaResponse) return oktaResponse;
     }
-
-    const oktaResponse = await dispatchOkta({
-      event, sessionAttrs, msgLower, message, lang, countryCode, intent,
-      doTicketLookup
-    });
-    if (oktaResponse) return oktaResponse;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
