@@ -542,6 +542,51 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
   // PRIORITY 0 — SNOW TICKET NUMBER LOOKUP
   // ══════════════════════════════════════════════════════════════════════════
+  // PRIORITY 0.9 — SYSTEM DISAMBIGUATION (Okta vs POS)
+  // When user's message matches both Okta and POS, we asked them to clarify.
+  // ══════════════════════════════════════════════════════════════════════════
+  if (prevState === 'AWAITING_SYSTEM_CHOICE') {
+    const pendingMsg    = sessionAttrs.pendingMessage || '';
+    const chose1orPos   = /\b(1|pos|till|register|aptos|caja|registro)\b/i.test(message);
+    const chose2orOkta  = /\b(2|okta|computer|apps?|email|teams|computadora|correo)\b/i.test(message);
+
+    if (chose1orPos) {
+      console.log(`[chatHandler] disambiguation → POS selected`);
+      // Route to POS handler with the original pending message
+      const posResponse = await dispatchPos({
+        event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' },
+        msgLower: pendingMsg.toLowerCase(), message: pendingMsg, lang, countryCode
+      });
+      if (posResponse) return posResponse;
+    }
+
+    if (chose2orOkta) {
+      console.log(`[chatHandler] disambiguation → Okta selected`);
+      // Route to Okta handler with the original pending message
+      const oktaResponse = await dispatchOkta({
+        event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' },
+        msgLower: pendingMsg.toLowerCase(), message: pendingMsg, lang, countryCode, intent,
+        doTicketLookup
+      });
+      if (oktaResponse) return oktaResponse;
+    }
+
+    // Unclear response — re-prompt
+    const reprompt = getMsg(lang, {
+      en: 'Please reply **1** for POS/register login or **2** for Okta/computer/apps login.',
+      es: 'Por favor responde **1** para POS/caja o **2** para Okta/computadora/apps.'
+    });
+    return {
+      sessionState: {
+        sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_SYSTEM_CHOICE' },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
+      },
+      messages: [{ contentType: 'PlainText', content: reprompt }]
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   const snowMatch = SNOW_NUMBER_REGEX.exec(message);
   if (snowMatch) {
     console.log(`[chatHandler] SNOW number detected: "${snowMatch[0]}" → ticket lookup`);
@@ -575,6 +620,39 @@ const handleChat = async (event) => {
   }
 
   if (isOktaIntent || isOktaMidFlow || isOktaKeyword || isLogWithNumeric) {
+    // ── Disambiguation: if POS keywords also match and no clear Okta-only signal ──
+    const isPosKeywordToo = shouldHandlePos(msgLower, sessionAttrs);
+    const hasOktaOnlySignal = /\b(okta|mfa|factors|sso|single sign|email login|apps? login|computer login)\b/i.test(message);
+    const hasPosOnlySignal  = /\b(pos|till|register|aptos|staff code)\b/i.test(message);
+
+    if (isPosKeywordToo && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
+      // Ambiguous — ask user to clarify
+      console.log(`[chatHandler] ambiguous Okta/POS — prompting disambiguation`);
+      const disambigMsg = getMsg(lang, {
+        en: 'I want to make sure I help you with the right system. Is this for:\n\n' +
+            '1️⃣ **POS / Register / Till** — the login at the store register (Aptos One)\n' +
+            '2️⃣ **Okta / Computer / Apps** — email, Teams, or other app logins\n\n' +
+            'Please reply **1** for POS or **2** for Okta.',
+        es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:\n\n' +
+            '1️⃣ **POS / Registro / Caja** — el inicio de sesión en la caja registradora (Aptos One)\n' +
+            '2️⃣ **Okta / Computadora / Apps** — correo, Teams, u otras aplicaciones\n\n' +
+            'Por favor responde **1** para POS o **2** para Okta.'
+      });
+
+      return {
+        sessionState: {
+          sessionAttributes: {
+            ...sessionAttrs,
+            conversationState: 'AWAITING_SYSTEM_CHOICE',
+            pendingMessage: message
+          },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
+        },
+        messages: [{ contentType: 'PlainText', content: disambigMsg }]
+      };
+    }
+
     const oktaResponse = await dispatchOkta({
       event, sessionAttrs, msgLower, message, lang, countryCode, intent,
       doTicketLookup

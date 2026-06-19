@@ -38,12 +38,12 @@ const APTOS_TIMEOUT   = parseInt(process.env.APTOS_TIMEOUT) || 12000;
 const APTOS_SECRET    = process.env.APTOS_SECRET_ARN || 'skx_aptosOne';
 const USER_AGENT      = 'SKX-ITSM-ChatBot/1.0';
 
-// Default password for POS reset = SK + employee number (e.g., SK51494)
+// Default password for POS reset = SKE + employee number (e.g., SKE51494)
 // The password is deterministic based on the POS username
 function buildDefaultPassword(username) {
   // Strip SKE prefix if present to get the raw employee number
   const empNumber = (username || '').replace(/^SKE/i, '');
-  return `SK${empNumber}`;
+  return `SKE${empNumber}`;
 }
 const DEFAULT_POS_PASSWORD = null; // Computed per-user via buildDefaultPassword()
 
