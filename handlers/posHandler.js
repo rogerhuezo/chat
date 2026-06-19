@@ -115,8 +115,8 @@ const MSG = {
   },
 
   notFoundChoice: {
-    en: 'What would you like to do?\n\n1️⃣ **Try again** — type the correct staff code\n2️⃣ **Create incident** — log it for IT to investigate',
-    es: '¿Qué deseas hacer?\n\n1️⃣ **Reintentar** — escribe el código correcto\n2️⃣ **Crear incidente** — registrar para que TI lo investigue'
+    en: 'What would you like to do?\n\n1️⃣ **Try again** — type the correct staff code\n2️⃣ **Create incident & transfer** — log it and connect you with an analyst',
+    es: '¿Qué deseas hacer?\n\n1️⃣ **Reintentar** — escribe el código correcto\n2️⃣ **Crear incidente y transferir** — registrar y conectarte con un analista'
   },
   cancelled: {
     en: '❌ POS action cancelled. Is there anything else I can help you with?',
@@ -471,8 +471,9 @@ async function handlePosStaffReset({
 
       return {
         handled     : true,
-        message     : `📋 Incident created for IT to investigate: **${incidentNumber}**\n\nIs there anything else I can help you with?`,
-        sessionAttrs: clearPosState()
+        message     : `📋 Incident created: **${incidentNumber}**\n\nLet me connect you with an analyst who can help further. Please hold.`,
+        sessionAttrs: clearPosState(),
+        transfer    : true
       };
     }
 

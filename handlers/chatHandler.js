@@ -390,6 +390,12 @@ const dispatchPos = async ({ event, sessionAttrs, msgLower, message, lang, count
     if (posResult.handled) {
       const updatedAttrs = { ...sessionAttrs, ...(posResult.sessionAttrs || {}) };
       try { await appendTurn(updatedAttrs, event, posResult.message); } catch (e) { /* non-fatal */ }
+
+      // If POS handler requests transfer (user not found → create incident + transfer)
+      if (posResult.transfer) {
+        return dispatchTransfer({ event, sessionAttrs: updatedAttrs, lang, firstName: '', countryCode });
+      }
+
       return lexPos(posResult.message, updatedAttrs);
     }
   } catch (err) {
