@@ -353,14 +353,15 @@ function getSecurityLevelLabel(level) {
 /**
  * normalizePosUsername(input)
  * Normalizes various formats of employee IDs to POS username
- * - "51494" (5+ digits) → "SKE51494"
- * - "SKE51494" → "SKE51494"
- * - "1234" (< 5 digits) → "1234"
+ * POS username IS the employee number (no prefix)
+ * - "51494" → "51494"
+ * - "SKE51494" → "51494" (strip SKE if user provides it)
+ * - "425086" → "425086"
  */
 function normalizePosUsername(input) {
   const cleaned = (input || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (cleaned.startsWith('SKE')) return cleaned;
-  if (/^\d+$/.test(cleaned) && cleaned.length >= 5) return `SKE${cleaned}`;
+  // Strip SKE prefix if user provided it — POS username is just the number
+  if (cleaned.startsWith('SKE')) return cleaned.replace(/^SKE/, '');
   return cleaned;
 }
 
@@ -369,8 +370,10 @@ function normalizePosUsername(input) {
  * Returns an alternate format to try if first lookup fails
  */
 function getAlternateUsername(username) {
-  if (username.startsWith('SKE')) return username.replace('SKE', '');
+  // If pure number, try with SKE prefix (in case Aptos stores it that way)
   if (/^\d+$/.test(username)) return `SKE${username}`;
+  // If has SKE, try without
+  if (username.startsWith('SKE')) return username.replace('SKE', '');
   return null;
 }
 
