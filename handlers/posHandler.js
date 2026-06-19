@@ -26,6 +26,7 @@ const {
   getAlternateUsername,
   getPosSystem,
   getSecurityLevelLabel,
+  buildDefaultPassword,
   DEFAULT_POS_PASSWORD
 } = require('../utils/aptosApiHandler');
 
@@ -127,8 +128,20 @@ const MSG = {
     es: 'Por favor responde **sí** para continuar o **no** para cancelar.'
   },
   resultSuccess: {
-    en: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completed successfully.\n\nThe employee's POS login has been reset to the default password. They will be prompted to change it on first login at the register.\n\nThe DCN file will sync to the store server shortly. The employee should be able to log in at the till within a few minutes.`,
-    es: (name, username, action) => `✅ **${name}** (POS: ${username}) — POS ${action} completado exitosamente.\n\nEl login POS del empleado ha sido restablecido a la contraseña predeterminada. Se le pedirá que la cambie al iniciar sesión en el registro.\n\nEl archivo DCN se sincronizará con el servidor de la tienda en breve. El empleado podrá iniciar sesión en el POS en unos minutos.`
+    en: (name, username, action) => {
+      const defaultPwd = buildDefaultPassword(username);
+      if (action === 'Password Reset') {
+        return `✅ **${name}** (POS: ${username}) — POS ${action} completed successfully.\n\n**Default password:** \`${defaultPwd}\`\nThe employee will need to enter this at the register to log in.\n\nThe DCN file will sync to the store server shortly. The employee should be able to log in at the till within a few minutes.`;
+      }
+      return `✅ **${name}** (POS: ${username}) — POS ${action} completed successfully.\n\nThe account has been unlocked. The employee can now log in at the register with their existing password.\n\nThe DCN file will sync to the store server shortly.`;
+    },
+    es: (name, username, action) => {
+      const defaultPwd = buildDefaultPassword(username);
+      if (action === 'Restablecimiento de Contraseña') {
+        return `✅ **${name}** (POS: ${username}) — POS ${action} completado exitosamente.\n\n**Contraseña predeterminada:** \`${defaultPwd}\`\nEl empleado necesitará ingresarla en el registro para iniciar sesión.\n\nEl archivo DCN se sincronizará con el servidor de la tienda en breve.`;
+      }
+      return `✅ **${name}** (POS: ${username}) — POS ${action} completado exitosamente.\n\nLa cuenta ha sido desbloqueada. El empleado puede iniciar sesión en el registro con su contraseña existente.\n\nEl archivo DCN se sincronizará con el servidor de la tienda en breve.`;
+    }
   },
   resultFailed: {
     en: (name, username, error) => `❌ **${name}** (POS: ${username}) — Failed: ${error}`,
@@ -402,7 +415,7 @@ async function handlePosStaffReset({
     let success = false;
     let error   = null;
     try {
-      const result = await executePosAction(action, employee.aptosId);
+      const result = await executePosAction(action, employee.aptosId, employee.username);
       success = result.success;
       console.log(`[posHandler] ✅ ${action} success: ${employee.displayName}`);
     } catch (e) {

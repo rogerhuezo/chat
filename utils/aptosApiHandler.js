@@ -38,8 +38,14 @@ const APTOS_TIMEOUT   = parseInt(process.env.APTOS_TIMEOUT) || 12000;
 const APTOS_SECRET    = process.env.APTOS_SECRET_ARN || 'skx_aptosOne';
 const USER_AGENT      = 'SKX-ITSM-ChatBot/1.0';
 
-// Default password for POS reset
-const DEFAULT_POS_PASSWORD = 'Skechers1';
+// Default password for POS reset = SK + employee number (e.g., SK51494)
+// The password is deterministic based on the POS username
+function buildDefaultPassword(username) {
+  // Strip SKE prefix if present to get the raw employee number
+  const empNumber = (username || '').replace(/^SKE/i, '');
+  return `SK${empNumber}`;
+}
+const DEFAULT_POS_PASSWORD = null; // Computed per-user via buildDefaultPassword()
 
 // ── Token cache (reuse until 75% of expiry) ─────────────────────────────────
 let _cachedToken  = null;
@@ -212,17 +218,18 @@ async function getUserByPosUsername(username) {
 // ============================================================
 
 /**
- * resetPassword(userId, password)
- * Resets POS login password to default
+ * resetPassword(userId, username)
+ * Resets POS login password to default (SK + employee number)
  */
-async function resetPassword(userId, password) {
+async function resetPassword(userId, username) {
   console.log(`[aptos] resetPassword: ${userId}`);
+  const defaultPwd = buildDefaultPassword(username || userId);
   const payload = {
-    password: password || DEFAULT_POS_PASSWORD,
+    password: defaultPwd,
     passwordUpdateRequired: false
   };
   const result = await authRequest('PATCH', `/users/v2/users/${userId}`, payload);
-  return { success: !!(result && result.id), result };
+  return { success: !!(result && result.id), result, defaultPassword: defaultPwd };
 }
 
 /**
@@ -252,12 +259,12 @@ async function lockAccount(userId) {
 // ============================================================
 
 /**
- * executePosAction(action, userId)
+ * executePosAction(action, userId, username)
  * action: 'password_reset' | 'account_unlock'
  */
-async function executePosAction(action, userId) {
+async function executePosAction(action, userId, username) {
   switch (action) {
-    case 'password_reset': return resetPassword(userId);
+    case 'password_reset': return resetPassword(userId, username);
     case 'account_unlock': return unlockAccount(userId);
     default:
       throw new Error(`Unknown POS action: ${action}`);
@@ -377,6 +384,7 @@ module.exports = {
   normalizeUser,
   normalizePosUsername,
   getAlternateUsername,
+  buildDefaultPassword,
   isAptosRegion,
   isXstoreRegion,
   getPosSystem,
