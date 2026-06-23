@@ -264,9 +264,39 @@ function wantsRetry(msgLower) {
   return /\b(1|retry|reintentar|try again|intentar|intentar de nuevo|retype|volver)\b/i.test(msgLower);
 }
 
+// POS/hardware keywords that should NOT trigger Okta flow
+const POS_HARDWARE_EXCLUSIONS = [
+  'cash register', 'register', 'pinpad', 'pin pad',
+  'fiscal printer', 'point of sale', 'telephone', 'phone line',
+  'barcode scanner', 'workstation', 'till is already',
+  'doesn\'t accept calls', 'doesnt accept calls',
+  'not receiving signal', 'monitor', 'printer not working'
+];
+
+// Explicit Okta keywords that override the hardware exclusion
+const EXPLICIT_OKTA_KEYWORDS = [
+  'okta', 'password reset', 'reset password', 'unlock account',
+  'account locked', 'locked out', 'mfa reset', 'reset factors'
+];
+
 function shouldHandleOkta(msgLower, attrs) {
   if (attrs.oktaState) return true;
-  return OKTA_TRIGGER_KEYWORDS.some(kw => msgLower.includes(kw));
+  
+  // Check if message matches any Okta trigger
+  const hasOktaTrigger = OKTA_TRIGGER_KEYWORDS.some(kw => msgLower.includes(kw));
+  if (!hasOktaTrigger) return false;
+  
+  // If message is about POS/hardware, only proceed if it ALSO has explicit Okta keywords
+  const isHardwareMessage = POS_HARDWARE_EXCLUSIONS.some(kw => msgLower.includes(kw));
+  if (isHardwareMessage) {
+    const hasExplicitOkta = EXPLICIT_OKTA_KEYWORDS.some(kw => msgLower.includes(kw));
+    if (!hasExplicitOkta) {
+      console.log(`[oktaHandler] POS/hardware exclusion — skipping Okta: "${msgLower.substring(0, 80)}"`);
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 function clearOktaState() {

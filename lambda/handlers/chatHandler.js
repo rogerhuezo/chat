@@ -94,6 +94,19 @@ const ACCESS_REQUEST_PATTERNS = [
   /^quero um novo /i
 ];
 
+// ── Aptos POS / Staff activation keywords — should create ticket, not Okta ────
+const APTOS_POS_PATTERNS = [
+  /\b(activate|activar|ativar)\b.*\b(code|codigo|código)\b/i,
+  /\b(staff|employee)\s*(code|codes)\b/i,
+  /\b(update|actualizar)\s*(the\s*)?(tills?|POS|aptos)\b/i,
+  /\bnew\s*(starter|hire|hiring|employee)\b.*\b(POS|till|aptos|register|system)\b/i,
+  /\b(POS|till|aptos|register)\b.*\bnew\s*(starter|hire|hiring|employee)\b/i,
+  /\bcredentials?\s*(not\s*)?(activated|active)\s*(in|on)\s*(POS|till|aptos)\b/i,
+  /\bnot\s*(on|in)\s*(the\s*)?(system|POS|till|aptos)\b/i,
+  /\b(clock\s*in|stamping)\b.*\b(code|doesn't work|doesnt work|not work)\b/i,
+  /\b(code|codes)\b.*\b(clock\s*in|stamping)\b.*\b(doesn't work|doesnt work|not work)\b/i
+];
+
 const TRANSFER_TRIGGER_WORDS = [
   // EN
   'live agent', 'human', 'real person', 'transfer', 'live support',
@@ -482,7 +495,9 @@ const handleChat = async (event) => {
   }
 
   // ── Keyword-based Okta override — catches verbose messages that Lex misses ──
-  if (intent === 'FallbackIntent' && shouldHandleOkta(msgLower, resolvedAttrs)) {
+  // Skip if it's an Aptos POS request (handled separately at Priority 0.5)
+  const isAptosPosMessage = APTOS_POS_PATTERNS.some(p => p.test(message));
+  if (intent === 'FallbackIntent' && shouldHandleOkta(msgLower, resolvedAttrs) && !isAptosPosMessage) {
     console.log(`[chatHandler] FallbackIntent → OktaAccountManagement (keyword match)`);
     intent = 'OktaAccountManagement';
   }
@@ -574,6 +589,45 @@ const handleChat = async (event) => {
   if (snowMatch) {
     console.log(`[chatHandler] SNOW number detected: "${snowMatch[0]}" → ticket lookup`);
     return doTicketLookup(snowMatch[0].toUpperCase());
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PRIORITY 0.5 — APTOS POS / STAFF ACTIVATION (creates ticket + transfers)
+  // These are NOT Okta requests — they need IT to activate in Aptos POS system
+  // ══════════════════════════════════════════════════════════════════════════
+  const isAptosPosRequest = APTOS_POS_PATTERNS.some(p => p.test(message));
+  if (isAptosPosRequest) {
+    console.log(`[chatHandler] Aptos POS activation detected — creating ticket + transfer: "${message.substring(0, 80)}"`);
+    
+    const aptosMsg = getMsg(lang, {
+      en: `I understand you need to activate employee credentials on the POS system. I'll create a support ticket and connect you with an IT analyst who can assist with the Aptos activation.\n\nPlease hold while I transfer you.`,
+      es: `Entiendo que necesitas activar las credenciales de un empleado en el sistema POS. Crearé un ticket de soporte y te conectaré con un analista de TI que puede ayudar con la activación en Aptos.\n\nPor favor espera mientras te transfiero.`,
+      pt: `Entendo que você precisa ativar as credenciais de um funcionário no sistema POS. Vou criar um ticket de suporte e conectá-lo com um analista de TI que pode ajudar com a ativação no Aptos.\n\nPor favor aguarde enquanto eu o transfiro.`
+    });
+
+    // Create incident for the Aptos request
+    try {
+      const aptosIncident = await handleCreateIncident({
+        ...event,
+        ticketTitle: message,
+        contactAttributes: {
+          ...sessionAttrs,
+          incidentTitle: `POS Activation Request — ${sessionAttrs.Name || sessionAttrs.Email}`,
+          incidentDescription: message,
+          Name: sessionAttrs.Name || '',
+          wdUsername: sessionAttrs.Email || '',
+          userId: sessionAttrs.Email || ''
+        }
+      });
+      const ticketNum = aptosIncident?.response?.match(/\*\*(INC\d+)\*\*/)?.[1] || 'ticket';
+      const fullMsg = `${aptosMsg}\n\n📋 Ticket created: **${ticketNum}**`;
+      try { await appendTurn(sessionAttrs, event, fullMsg); } catch (e) { /* non-fatal */ }
+    } catch (e) {
+      console.warn(`[chatHandler] Aptos ticket creation failed (non-fatal): ${e.message}`);
+    }
+
+    // Transfer to agent
+    return dispatchTransfer({ event, sessionAttrs, lang, firstName, countryCode });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
