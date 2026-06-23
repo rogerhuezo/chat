@@ -691,6 +691,24 @@
             "value": "GetIncidentStatus"
           }
         ]
+      },
+      "a1b2c3d4-0007-0007-0007-a1b2c3d40007": {
+        "position": {
+          "x": 1232.8,
+          "y": 500
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "check-transfer-requested",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "true"
+          }
+        ]
       }
     },
     "Annotations": [],
@@ -1495,7 +1513,7 @@
             }
           },
           {
-            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "NextAction": "a1b2c3d4-0007-0007-0007-a1b2c3d40007",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -1519,12 +1537,39 @@
             "ErrorType": "InputTimeLimitExceeded"
           },
           {
-            "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
+            "NextAction": "a1b2c3d4-0007-0007-0007-a1b2c3d40007",
             "ErrorType": "NoMatchingCondition"
           },
           {
             "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
             "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.transferRequested"
+      },
+      "Identifier": "a1b2c3d4-0007-0007-0007-a1b2c3d40007",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+        "Conditions": [
+          {
+            "NextAction": "4202aff7-5603-47c4-915f-79c7fa444a63",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "ErrorType": "NoMatchingCondition"
           }
         ]
       }
