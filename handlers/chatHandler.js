@@ -655,12 +655,23 @@ const handleChat = async (event) => {
 
     if (chose1orPos) {
       console.log(`[chatHandler] disambiguation → POS selected`);
+      // If pending message is a generic password/reset phrase (not a detailed POS issue),
+      // transfer directly to live agent instead of routing through POS handler
+      const genericPasswordPhrase = /^(i need to |i want to |can you |please )?(reset|unlock|change)?\s*(my )?(password|account|login)$/i.test(pendingMsg.trim()) ||
+        /^(reset|unlock|password|locked out|cant log in|cannot log in|can't log in|i forgot my password|forgot password|forgot my password)$/i.test(pendingMsg.trim().toLowerCase().replace(/[?!.'",]/g, ''));
+      if (genericPasswordPhrase || !pendingMsg) {
+        console.log(`[chatHandler] disambiguation → POS selected with generic phrase — transferring to live agent`);
+        return dispatchTransfer({ event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' }, lang, firstName, countryCode });
+      }
       // Route to POS handler with the original pending message
       const posResponse = await dispatchPos({
         event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' },
         msgLower: pendingMsg.toLowerCase(), message: pendingMsg, lang, countryCode
       });
       if (posResponse) return posResponse;
+      // POS handler didn't handle it — fall through to transfer
+      console.log(`[chatHandler] disambiguation → POS handler declined, transferring to live agent`);
+      return dispatchTransfer({ event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' }, lang, firstName, countryCode });
     }
 
     if (chose2orOkta) {
@@ -736,10 +747,16 @@ const handleChat = async (event) => {
     const hasOktaOnlySignal = /\b(okta|mfa|factors|sso|single sign|email login|apps? login|computer login)\b/i.test(message);
     const hasPosOnlySignal  = /\b(pos|till|register|aptos|staff code)\b/i.test(message);
 
+    // Store user with generic password/reset/unlock keywords — force disambiguation
+    // even if shouldHandlePos doesn't match (since POS_TRIGGER_KEYWORDS needs compound phrases)
+    const isStoreUserPassword = /^store\d+@skechers\.com$/i.test(sessionAttrs.Email || '') &&
+      /\b(password|reset|unlock|locked out|locked|cant log in|cannot log in|can't log in)\b/i.test(message);
+    const needsDisambiguation = isPosKeywordToo || (isStoreUserPassword && !hasOktaOnlySignal && !hasPosOnlySignal);
+
     // If message has a clear POS signal, skip Okta entirely → let POS handler (Priority 1.2) handle it
     if (hasPosOnlySignal && !hasOktaOnlySignal) {
       console.log(`[chatHandler] POS-only signal detected in Okta block — skipping Okta, will route to POS`);
-    } else if (isPosKeywordToo && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
+    } else if (needsDisambiguation && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
       // Ambiguous — ask user to clarify
       console.log(`[chatHandler] ambiguous Okta/POS — prompting disambiguation`);
       const disambigMsg = getMsg(lang, {
@@ -1320,6 +1337,36 @@ const handleChat = async (event) => {
   }
 
   if (prevState === 'AWAITING_DESCRIPTION') {
+    // Check for decline/exit phrases — user doesn't want to create a ticket
+    const declinePhrases = ['no', 'nope', 'no thanks', 'no thank you', 'nevermind',
+                            'never mind', 'cancel', 'forget it', 'no gracias',
+                            'não', 'nao', 'nein', 'non'];
+    const isDecline = declinePhrases.some(p => msgLower === p);
+    if (isDecline) {
+      console.log(`[chatHandler] AWAITING_DESCRIPTION — user declined, returning to IDLE`);
+      const declineContent = getMsg(lang, {
+        en: `No problem! Let me know if you need anything else.`,
+        es: `¡Sin problema! Avísame si necesitas algo más.`,
+        pt: `Sem problema! Me avise se precisar de mais alguma coisa.`,
+        fr: `Pas de problème! N'hésitez pas si vous avez besoin d'autre chose.`,
+        de: `Kein Problem! Lassen Sie mich wissen, wenn Sie noch etwas brauchen.`
+      });
+      try { await appendTurn(sessionAttrs, event, declineContent); } catch (e) { /* non-fatal */ }
+      return {
+        sessionState: {
+          sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'Fulfilled',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: declineContent }]
+      };
+    }
+
     if (message && message.length > 5) {
       const ticketResult = await handleCreateIncident({
         ...event,
