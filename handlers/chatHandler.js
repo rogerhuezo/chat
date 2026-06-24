@@ -415,6 +415,9 @@ const dispatchTransfer = async ({ event, sessionAttrs, lang, firstName,
 
   console.log(`[chatHandler] transfer → region: "${transferRegion}" queue: "${queue}"`);
 
+  // Log the transfer turn before closing
+  try { await appendTurn(sessionAttrs, event, transferMsg); } catch (e) { /* non-fatal */ }
+
   // ✅ FIXED v1.2.2: guard closeInteraction — log clearly if not available
   if (typeof closeInteraction === 'function') {
   try {
@@ -577,6 +580,7 @@ const handleChat = async (event) => {
       en: 'Please reply **1** for POS/register login or **2** for Okta/computer/apps login.',
       es: 'Por favor responde **1** para POS/caja o **2** para Okta/computadora/apps.'
     });
+    try { await appendTurn(sessionAttrs, event, reprompt); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_SYSTEM_CHOICE' },
@@ -612,11 +616,14 @@ const handleChat = async (event) => {
     const isAccessPhrase = ACCESS_REQUEST_PATTERNS.some(p => p.test(message));
     if (!isStoreUser && isAccessPhrase) {
       console.log(`[chatHandler] OktaIntent intercept → catalog redirect: "${message}"`);
-      return handleCatalogRequest({
+      const catalogResult = await handleCatalogRequest({
         ...event,
         userMessage      : message,
         contactAttributes: sessionAttrs
       });
+      const catalogContent = catalogResult?.messages?.[0]?.content || '';
+      try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+      return catalogResult;
     }
   }
 
@@ -642,6 +649,8 @@ const handleChat = async (event) => {
             '2️⃣ **Okta / Computadora / Apps** — correo, Teams, u otras aplicaciones\n\n' +
             'Por favor responde **1** para POS o **2** para Okta.'
       });
+
+      try { await appendTurn(sessionAttrs, event, disambigMsg); } catch (e) { /* non-fatal */ }
 
       return {
         sessionState: {
@@ -735,6 +744,7 @@ const handleChat = async (event) => {
       fr: 'Souhaitez-vous que je vous connecte avec un agent de support informatique? Veuillez répondre **oui** ou **non**.',
       de: 'Möchten Sie, dass ich Sie mit einem IT-Support-Mitarbeiter verbinde? Bitte antworten Sie mit **ja** oder **nein**.'
     });
+    try { await appendTurn(sessionAttrs, event, repromptMsg); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: {
@@ -799,11 +809,14 @@ const handleChat = async (event) => {
   const isAccessRequest = ACCESS_REQUEST_PATTERNS.some(p => p.test(message));
   if (isAccessRequest) {
     console.log(`[chatHandler] access request guard → catalog: "${message}"`);
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return catalogResult;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -836,6 +849,14 @@ const handleChat = async (event) => {
 
       if (isPositive) {
         console.log(`[chatHandler] AWAITING_RESOLUTION + positive social → resolved`);
+        const positiveContent = getMsg(lang, {
+          en: `Glad I could help${firstName ? ', ' + firstName : ''}! Is there anything else I can assist you with?`,
+          es: `Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! Hay algo mas en lo que pueda ayudarte?`,
+          pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! Ha mais alguma coisa em que posso ajuda-lo?`,
+          fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! Y a-t-il autre chose que je puisse faire pour vous?`,
+          de: `Schoen dass ich helfen konnte${firstName ? ', ' + firstName : ''}! Gibt es noch etwas womit ich Ihnen helfen kann?`
+        });
+        try { await appendTurn(sessionAttrs, event, positiveContent); } catch (e) { /* non-fatal */ }
         try {
           await closeInteraction(
             sessionAttrs.serviceNowInteractionId,
@@ -859,19 +880,21 @@ const handleChat = async (event) => {
           },
           messages: [{
             contentType: 'PlainText',
-            content    : getMsg(lang, {
-              en: `Glad I could help${firstName ? ', ' + firstName : ''}! Is there anything else I can assist you with?`,
-              es: `Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! Hay algo mas en lo que pueda ayudarte?`,
-              pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! Ha mais alguma coisa em que posso ajuda-lo?`,
-              fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! Y a-t-il autre chose que je puisse faire pour vous?`,
-              de: `Schoen dass ich helfen konnte${firstName ? ', ' + firstName : ''}! Gibt es noch etwas womit ich Ihnen helfen kann?`
-            })
+            content    : positiveContent
           }]
         };
       }
 
       if (isNegative) {
         console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → offer ticket`);
+        const negativeContent = getMsg(lang, {
+          en: `I'm sorry the information didn't help${firstName ? ', ' + firstName : ''}. Would you like me to open a support ticket? If so, please describe your issue.`,
+          es: `Lo siento si la informacion no fue util${firstName ? ', ' + firstName : ''}. Te gustaria que abriera un ticket de soporte? Si es asi, describe tu problema.`,
+          pt: `Lamento se as informacoes nao foram uteis${firstName ? ', ' + firstName : ''}. Voce gostaria que eu abrisse um ticket de suporte? Se sim, descreva seu problema.`,
+          fr: `Je suis desole si les informations n'ont pas aide${firstName ? ', ' + firstName : ''}. Voulez-vous que j'ouvre un ticket de support? Si oui, decrivez votre probleme.`,
+          de: `Es tut mir leid wenn die Informationen nicht geholfen haben${firstName ? ', ' + firstName : ''}. Moechten Sie dass ich ein Support-Ticket oeffne? Wenn ja beschreiben Sie bitte Ihr Problem.`
+        });
+        try { await appendTurn(sessionAttrs, event, negativeContent); } catch (e) { /* non-fatal */ }
         return {
           sessionState: {
             sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -885,13 +908,7 @@ const handleChat = async (event) => {
           },
           messages: [{
             contentType: 'PlainText',
-            content    : getMsg(lang, {
-              en: `I'm sorry the information didn't help${firstName ? ', ' + firstName : ''}. Would you like me to open a support ticket? If so, please describe your issue.`,
-              es: `Lo siento si la informacion no fue util${firstName ? ', ' + firstName : ''}. Te gustaria que abriera un ticket de soporte? Si es asi, describe tu problema.`,
-              pt: `Lamento se as informacoes nao foram uteis${firstName ? ', ' + firstName : ''}. Voce gostaria que eu abrisse um ticket de suporte? Se sim, descreva seu problema.`,
-              fr: `Je suis desole si les informations n'ont pas aide${firstName ? ', ' + firstName : ''}. Voulez-vous que j'ouvre un ticket de support? Si oui, decrivez votre probleme.`,
-              de: `Es tut mir leid wenn die Informationen nicht geholfen haben${firstName ? ', ' + firstName : ''}. Moechten Sie dass ich ein Support-Ticket oeffne? Wenn ja beschreiben Sie bitte Ihr Problem.`
-            })
+            content    : negativeContent
           }]
         };
       }
@@ -920,6 +937,8 @@ const handleChat = async (event) => {
       ? `${getMsg(lang, MESSAGES.youreWelcome)}${firstName ? ' ' + firstName + '!' : '!'} ${getMsg(lang, MESSAGES.goodbye)}`
       : `${getMsg(lang, MESSAGES.youreWelcome)} ${getMsg(lang, MESSAGES.anythingElse)}`;
 
+    try { await appendTurn(sessionAttrs, event, content); } catch (e) { /* non-fatal */ }
+
     return {
       sessionState: {
         sessionAttributes: {
@@ -943,11 +962,14 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (prevState === 'AWAITING_CATALOG_TERM' && message) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return catalogResult;
   }
 
   if (prevState === 'AWAITING_CATALOG_FALLBACK') {
@@ -956,6 +978,8 @@ const handleChat = async (event) => {
       .some(w => msgLower === w);
 
     if (wantsTicket) {
+      const catalogYesContent = getMsg(lang, MESSAGES.describeIssue);
+      try { await appendTurn(sessionAttrs, event, catalogYesContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -967,10 +991,18 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, MESSAGES.describeIssue) }]
+        messages: [{ contentType: 'PlainText', content: catalogYesContent }]
       };
     }
 
+    const catalogNoContent = getMsg(lang, {
+      en: 'No problem! Is there anything else I can help you with?',
+      es: '¡Sin problema! ¿Hay algo más en lo que pueda ayudarte?',
+      pt: 'Sem problema! Há mais alguma coisa em que posso ajudá-lo?',
+      fr: 'Pas de problème! Y a-t-il autre chose que je puisse faire pour vous?',
+      de: 'Kein Problem! Gibt es noch etwas, womit ich Ihnen helfen kann?'
+    });
+    try { await appendTurn(sessionAttrs, event, catalogNoContent); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
@@ -982,13 +1014,7 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-        en: 'No problem! Is there anything else I can help you with?',
-        es: '¡Sin problema! ¿Hay algo más en lo que pueda ayudarte?',
-        pt: 'Sem problema! Há mais alguma coisa em que posso ajudá-lo?',
-        fr: 'Pas de problème! Y a-t-il autre chose que je puisse faire pour vous?',
-        de: 'Kein Problem! Gibt es noch etwas, womit ich Ihnen helfen kann?'
-      }) }]
+      messages: [{ contentType: 'PlainText', content: catalogNoContent }]
     };
   }
 
@@ -999,11 +1025,14 @@ const handleChat = async (event) => {
     }
 
     if (isCatalogRequest(msgLower, slots)) {
-      return handleCatalogRequest({
+      const catalogResult = await handleCatalogRequest({
         ...event,
         userMessage      : message,
         contactAttributes: sessionAttrs
       });
+      const catalogContent = catalogResult?.messages?.[0]?.content || '';
+      try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+      return catalogResult;
     }
 
     const isResolved   = RESOLVED_PATTERNS.some(p => msgLower.includes(p));
@@ -1012,6 +1041,14 @@ const handleChat = async (event) => {
                          msgLower.includes('ticket') || msgLower.includes('incident');
 
     if (isResolved) {
+      const resolvedContent = getMsg(lang, {
+        en: `Glad I could help${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.en}`,
+        es: `¡Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.es}`,
+        pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.pt}`,
+        fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.fr}`,
+        de: `Schön, dass ich helfen konnte${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.de}`
+      });
+      try { await appendTurn(sessionAttrs, event, resolvedContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
@@ -1023,17 +1060,19 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: `Glad I could help${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.en}`,
-          es: `¡Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.es}`,
-          pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.pt}`,
-          fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.fr}`,
-          de: `Schön, dass ich helfen konnte${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.de}`
-        }) }]
+        messages: [{ contentType: 'PlainText', content: resolvedContent }]
       };
     }
 
     if (isUnresolved || wantsTicket) {
+      const unresolvedContent = getMsg(lang, {
+        en: 'I\'m not able to submit ServiceNow requests on your behalf, but I can create an IT support ticket. Would you like me to do that? If so, please describe your problem.',
+        es: 'No puedo enviar solicitudes de ServiceNow en tu nombre, pero puedo crear un ticket de soporte. ¿Te gustaría que lo hiciera? Si es así, describe tu problema.',
+        pt: 'Não posso enviar solicitações do ServiceNow em seu nome, mas posso criar um ticket de suporte. Você gostaria que eu fizesse isso? Se sim, descreva seu problema.',
+        fr: 'Je ne peux pas soumettre des demandes ServiceNow en votre nom, mais je peux créer un ticket de support. Voulez-vous que je le fasse? Si oui, décrivez votre problème.',
+        de: 'Ich kann keine ServiceNow-Anfragen in Ihrem Namen einreichen, aber ich kann ein Support-Ticket erstellen. Möchten Sie das? Wenn ja, beschreiben Sie bitte Ihr Problem.'
+      });
+      try { await appendTurn(sessionAttrs, event, unresolvedContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1045,18 +1084,14 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'I\'m not able to submit ServiceNow requests on your behalf, but I can create an IT support ticket. Would you like me to do that? If so, please describe your problem.',
-          es: 'No puedo enviar solicitudes de ServiceNow en tu nombre, pero puedo crear un ticket de soporte. ¿Te gustaría que lo hiciera? Si es así, describe tu problema.',
-          pt: 'Não posso enviar solicitações do ServiceNow em seu nome, mas posso criar um ticket de suporte. Você gostaria que eu fizesse isso? Se sim, descreva seu problema.',
-          fr: 'Je ne peux pas soumettre des demandes ServiceNow en votre nom, mais je peux créer un ticket de support. Voulez-vous que je le fasse? Si oui, décrivez votre problème.',
-          de: 'Ich kann keine ServiceNow-Anfragen in Ihrem Namen einreichen, aber ich kann ein Support-Ticket erstellen. Möchten Sie das? Wenn ja, beschreiben Sie bitte Ihr Problem.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: unresolvedContent }]
       };
     }
 
     const kbFollowUp = await handleKnowledgeQuery(message, sessionAttrs);
     if (kbFollowUp?.response || kbFollowUp?.botResponse) {
+      const kbFollowUpContent = kbFollowUp.response || kbFollowUp.botResponse;
+      try { await appendTurn(sessionAttrs, event, kbFollowUpContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: {
@@ -1072,10 +1107,18 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: kbFollowUp.response || kbFollowUp.botResponse }]
+        messages: [{ contentType: 'PlainText', content: kbFollowUpContent }]
       };
     }
 
+    const repromptContent = getMsg(lang, {
+      en: 'I\'m sorry, I didn\'t quite catch that. Did the information help, or would you like me to open a support ticket?',
+      es: 'Lo siento, no entendí bien. ¿La información fue útil, o te gustaría que abriera un ticket de soporte?',
+      pt: 'Desculpe, não entendi bem. As informações foram úteis, ou você gostaria que eu abrisse um ticket de suporte?',
+      fr: 'Désolé, je n\'ai pas bien compris. L\'information a-t-elle aidé, ou souhaitez-vous que j\'ouvre un ticket de support?',
+      de: 'Entschuldigung, ich habe das nicht ganz verstanden. Hat die Information geholfen, oder soll ich ein Support-Ticket öffnen?'
+    });
+    try { await appendTurn(sessionAttrs, event, repromptContent); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_RESOLUTION' },
@@ -1087,13 +1130,7 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-        en: 'I\'m sorry, I didn\'t quite catch that. Did the information help, or would you like me to open a support ticket?',
-        es: 'Lo siento, no entendí bien. ¿La información fue útil, o te gustaría que abriera un ticket de soporte?',
-        pt: 'Desculpe, não entendi bem. As informações foram úteis, ou você gostaria que eu abrisse um ticket de suporte?',
-        fr: 'Désolé, je n\'ai pas bien compris. L\'information a-t-elle aidé, ou souhaitez-vous que j\'ouvre un ticket de support?',
-        de: 'Entschuldigung, ich habe das nicht ganz verstanden. Hat die Information geholfen, oder soll ich ein Support-Ticket öffnen?'
-      }) }]
+      messages: [{ contentType: 'PlainText', content: repromptContent }]
     };
   }
 
@@ -1115,6 +1152,10 @@ const handleChat = async (event) => {
       try { await appendTurn(sessionAttrs, event, content); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(ticketResult, { ...sessionAttrs, conversationState: 'IDLE' }, 'LogIncident');
     }
+
+    // Message too short — re-prompt
+    const describeContent = getMsg(lang, MESSAGES.describeIssue);
+    try { await appendTurn(sessionAttrs, event, describeContent); } catch (e) { /* non-fatal */ }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1122,11 +1163,14 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (CATALOG_INTENTS.includes(intent)) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return catalogResult;
   }
 
   if (INCIDENT_INTENTS.includes(intent)) {
@@ -1134,6 +1178,14 @@ const handleChat = async (event) => {
     const shortdescription = slots?.shortdescription?.value?.interpretedValue || null;
     if (!shortdescription) {
       console.log(`[chatHandler] LogIncident — shortdescription slot is null → ask for description`);
+      const descContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, descContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1145,13 +1197,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: descContent }]
       };
     }
   
@@ -1160,6 +1206,14 @@ const handleChat = async (event) => {
   
     if (isPureCreateRequest) {
       console.log(`[chatHandler] LogIncident pure create phrase → ask for description: "${message}"`);
+      const pureDescContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, pureDescContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1171,13 +1225,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: pureDescContent }]
       };
     }
   
@@ -1210,11 +1258,14 @@ const handleChat = async (event) => {
   }
 
   if ((intent === 'FallbackIntent' || !intent) && isCatalogRequest(msgLower, slots)) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return catalogResult;
   }
 
   const TICKET_KEYWORDS = [
@@ -1228,6 +1279,14 @@ const handleChat = async (event) => {
 
   if ((intent === 'FallbackIntent' || !intent) && (TICKET_MATCH || PURE_REQUEST)) {
     if (PURE_REQUEST) {
+      const pureReqContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, pureReqContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1239,13 +1298,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: pureReqContent }]
       };
     }
     const ticketResult = await handleCreateIncident({
@@ -1268,11 +1321,15 @@ const handleChat = async (event) => {
   if (intent === 'FallbackIntent' || !intent) {
     if (!message) {
       const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+      const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+      try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
     }
     const kbResult = await handleKnowledgeQuery(message, sessionAttrs);
     if (!kbResult?.response && !kbResult?.botResponse) {
       const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+      const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+      try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
     }
     const kbContent = kbResult.response || kbResult.botResponse;
@@ -1298,11 +1355,15 @@ const handleChat = async (event) => {
 
   if (!message) {
     const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+    const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+    try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
     return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
   }
   const defaultKbResult = await handleKnowledgeQuery(message, sessionAttrs);
   if (!defaultKbResult?.response && !defaultKbResult?.botResponse) {
     const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+    const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+    try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
     return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
   }
   const defaultContent = defaultKbResult.response || defaultKbResult.botResponse;
