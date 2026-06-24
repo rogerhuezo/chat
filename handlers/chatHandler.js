@@ -651,7 +651,7 @@ const handleChat = async (event) => {
   if (prevState === 'AWAITING_SYSTEM_CHOICE') {
     const pendingMsg    = sessionAttrs.pendingMessage || '';
     const chose1orPos   = /\b(1|pos|till|register|aptos|caja|registro)\b/i.test(message);
-    const chose2orOkta  = /\b(2|okta|apps?|email|teams|correo)\b/i.test(message);
+    const chose2orOkta  = /\b(2|okta|apps?|email|teams|correo|workday|skechforce|mao)\b/i.test(message);
 
     if (chose1orPos) {
       console.log(`[chatHandler] disambiguation → POS selected`);
@@ -687,8 +687,8 @@ const handleChat = async (event) => {
 
     // Unclear response — re-prompt
     const reprompt = getMsg(lang, {
-      en: 'Please reply **1** for POS/register login or **2** for Okta/apps login.',
-      es: 'Por favor responde **1** para POS/caja o **2** para Okta/apps.'
+      en: 'I want to make sure I help you with the right system. Is this for:',
+      es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:'
     });
     try { await appendTurn(sessionAttrs, event, reprompt); } catch (e) { /* non-fatal */ }
     return {
@@ -699,7 +699,7 @@ const handleChat = async (event) => {
       },
       messages: buildQuickReply(
         reprompt,
-        [{ title: 'POS / Register / Till' }, { title: 'Okta / Apps' }],
+        [{ title: 'POS / Register / Till / Other' }, { title: 'Okta / Workday / Skechforce / MAO / Other' }],
         platform
       )
     };
@@ -760,14 +760,8 @@ const handleChat = async (event) => {
       // Ambiguous — ask user to clarify
       console.log(`[chatHandler] ambiguous Okta/POS — prompting disambiguation`);
       const disambigMsg = getMsg(lang, {
-        en: 'I want to make sure I help you with the right system. Is this for:\n\n' +
-            '1️⃣ **POS / Register / Till** — the login at the store register (Aptos One)\n' +
-            '2️⃣ **Okta / Apps** — email, Teams, or other app logins\n\n' +
-            'Please reply **1** for POS or **2** for Okta.',
-        es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:\n\n' +
-            '1️⃣ **POS / Registro / Caja** — el inicio de sesión en la caja registradora (Aptos One)\n' +
-            '2️⃣ **Okta / Apps** — correo, Teams, u otras aplicaciones\n\n' +
-            'Por favor responde **1** para POS o **2** para Okta.'
+        en: 'I want to make sure I help you with the right system. Is this for:',
+        es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:'
       });
 
       try { await appendTurn(sessionAttrs, event, disambigMsg); } catch (e) { /* non-fatal */ }
@@ -784,7 +778,7 @@ const handleChat = async (event) => {
         },
         messages: buildQuickReply(
           disambigMsg,
-          [{ title: 'POS / Register / Till' }, { title: 'Okta / Apps' }],
+          [{ title: 'POS / Register / Till / Other' }, { title: 'Okta / Workday / Skechforce / MAO / Other' }],
           platform
         )
       };
