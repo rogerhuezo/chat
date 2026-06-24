@@ -158,6 +158,13 @@ const MESSAGES = {
     pt: 'Desculpe, algo deu errado. Por favor tente novamente ou digite "agente".',
     fr: 'Désolé, quelque chose s\'est mal passé. Veuillez réessayer ou tapez "agent".',
     de: 'Es tut mir leid, etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder geben Sie "Agent" ein.'
+  },
+  incidentCreatedOfferTransfer: {
+    en: (name, number) => `I've created incident **${number}** for your issue${name ? ', ' + name : ''}. Would you like me to connect you with a live agent for further assistance?\n\nReply **yes** or **no**.`,
+    es: (name, number) => `He creado el incidente **${number}** para tu problema${name ? ', ' + name : ''}. ¿Te gustaría que te conectara con un agente en vivo para más asistencia?\n\nResponde **sí** o **no**.`,
+    pt: (name, number) => `Criei o incidente **${number}** para o seu problema${name ? ', ' + name : ''}. Gostaria que eu conectasse você com um agente ao vivo para mais assistência?\n\nResponda **sim** ou **não**.`,
+    fr: (name, number) => `J'ai créé l'incident **${number}** pour votre problème${name ? ', ' + name : ''}. Souhaitez-vous que je vous connecte avec un agent en direct pour une assistance supplémentaire?\n\nRépondez **oui** ou **non**.`,
+    de: (name, number) => `Ich habe Incident **${number}** für Ihr Problem erstellt${name ? ', ' + name : ''}. Möchten Sie, dass ich Sie mit einem Live-Agenten für weitere Unterstützung verbinde?\n\nAntworten Sie mit **ja** oder **nein**.`
   }
 };
 

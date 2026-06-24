@@ -766,6 +766,86 @@ const handleChat = async (event) => {
   // ── End v1.2.0 AWAITING_OKTA_TRANSFER_CONFIRM ─────────────────────────────
 
   // ══════════════════════════════════════════════════════════════════════════
+  // PRIORITY 1.6: AWAITING_TRANSFER_CONFIRM (post-incident auto-create)
+  // User was offered a live agent transfer after auto-incident creation.
+  // Must run BEFORE PRIORITY 2 so yes/no isn't swallowed by status or social.
+  // ══════════════════════════════════════════════════════════════════════════
+  if (prevState === 'AWAITING_TRANSFER_CONFIRM') {
+    console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — response: "${msgLower}"`);
+
+    const transferYesWords = ['yes', 'yeah', 'sure', 'yep', 'ok', 'okay', 'please',
+                              'si', 'sí', 'claro', 'sim', 'oui', 'ja'];
+    const transferNoWords  = ['no', 'nope', 'no thanks', 'no gracias', 'nao', 'não'];
+
+    const isTransferYes = transferYesWords.some(w => msgLower === w)
+      || TRANSFER_TRIGGER_WORDS.some(w => msgLower.includes(w))
+      || TRANSFER_INTENTS.includes(intent);
+
+    const isTransferNo = transferNoWords.some(w => msgLower === w);
+
+    if (isTransferYes) {
+      console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — yes → transferring`);
+      return dispatchTransfer({ event, sessionAttrs, lang, firstName, countryCode });
+    }
+
+    if (isTransferNo) {
+      console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — no → returning to IDLE`);
+      const declineMsg = getMsg(lang, {
+        en: `No problem${firstName ? ', ' + firstName : ''}! Let me know if you need anything else.`,
+        es: `¡Sin problema${firstName ? ', ' + firstName : ''}! Avísame si necesitas algo más.`,
+        pt: `Sem problema${firstName ? ', ' + firstName : ''}! Me avise se precisar de mais alguma coisa.`,
+        fr: `Pas de problème${firstName ? ', ' + firstName : ''}! N'hésitez pas si vous avez besoin d'autre chose.`,
+        de: `Kein Problem${firstName ? ', ' + firstName : ''}! Lassen Sie mich wissen, wenn Sie noch etwas brauchen.`
+      });
+      try { await appendTurn(sessionAttrs, event, declineMsg); } catch (e) { /* non-fatal */ }
+      return {
+        sessionState: {
+          sessionAttributes: {
+            ...sessionAttrs,
+            conversationState: 'IDLE'
+          },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'Fulfilled',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: declineMsg }]
+      };
+    }
+
+    // Unclear — re-prompt
+    console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — unclear, re-prompting`);
+    const repromptMsg = getMsg(lang, {
+      en: 'Would you like me to connect you with a live agent? Reply **yes** or **no**.',
+      es: '¿Te gustaría que te conectara con un agente en vivo? Responde **sí** o **no**.',
+      pt: 'Gostaria que eu conectasse você com um agente ao vivo? Responda **sim** ou **não**.',
+      fr: 'Souhaitez-vous que je vous connecte avec un agent en direct? Répondez **oui** ou **non**.',
+      de: 'Möchten Sie, dass ich Sie mit einem Live-Agenten verbinde? Antworten Sie mit **ja** oder **nein**.'
+    });
+    try { await appendTurn(sessionAttrs, event, repromptMsg); } catch (e) { /* non-fatal */ }
+    return {
+      sessionState: {
+        sessionAttributes: {
+          ...sessionAttrs,
+          conversationState: 'AWAITING_TRANSFER_CONFIRM'
+        },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: {
+          name             : 'FallbackIntent',
+          slots            : {},
+          state            : 'InProgress',
+          confirmationState: 'None'
+        }
+      },
+      messages: [{ contentType: 'PlainText', content: repromptMsg }]
+    };
+  }
+  // ── End AWAITING_TRANSFER_CONFIRM ─────────────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════════════════════
   // PRIORITY 2 — STATUS LOOKUP
   // ══════════════════════════════════════════════════════════════════════════
   const hasStatusWord = STATUS_LOOKUP_WORDS.some(w => msgLower.includes(w));
@@ -886,18 +966,47 @@ const handleChat = async (event) => {
       }
 
       if (isNegative) {
-        console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → offer ticket`);
-        const negativeContent = getMsg(lang, {
-          en: `I'm sorry the information didn't help${firstName ? ', ' + firstName : ''}. Would you like me to open a support ticket? If so, please describe your issue.`,
-          es: `Lo siento si la informacion no fue util${firstName ? ', ' + firstName : ''}. Te gustaria que abriera un ticket de soporte? Si es asi, describe tu problema.`,
-          pt: `Lamento se as informacoes nao foram uteis${firstName ? ', ' + firstName : ''}. Voce gostaria que eu abrisse um ticket de suporte? Se sim, descreva seu problema.`,
-          fr: `Je suis desole si les informations n'ont pas aide${firstName ? ', ' + firstName : ''}. Voulez-vous que j'ouvre un ticket de support? Si oui, decrivez votre probleme.`,
-          de: `Es tut mir leid wenn die Informationen nicht geholfen haben${firstName ? ', ' + firstName : ''}. Moechten Sie dass ich ein Support-Ticket oeffne? Wenn ja beschreiben Sie bitte Ihr Problem.`
-        });
+        console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → auto-create incident + offer transfer`);
+        const issueTitle = sessionAttrs.lastKbQuestion || message;
+        let ticketResult;
+        try {
+          ticketResult = await handleCreateIncident({
+            ...event,
+            ticketTitle      : issueTitle,
+            contactAttributes: {
+              ...sessionAttrs,
+              incidentTitle:       issueTitle,
+              incidentDescription: issueTitle,
+              Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
+              wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
+              userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
+            }
+          });
+        } catch (incErr) {
+          console.error(`[chatHandler] auto-create incident failed: ${incErr.message}`);
+          const errContent = getMsg(lang, MESSAGES.sorryError);
+          try { await appendTurn(sessionAttrs, event, errContent); } catch (e) { /* non-fatal */ }
+          return {
+            sessionState: {
+              sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
+              dialogAction: { type: 'ElicitIntent' },
+              intent: { name: 'FallbackIntent', slots: {}, state: 'Fulfilled', confirmationState: 'None' }
+            },
+            messages: [{ contentType: 'PlainText', content: errContent }]
+          };
+        }
+
+        const incNumber = ticketResult.ticketNumber || 'N/A';
+        const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
+        const negativeContent = msgFn(firstName, incNumber);
         try { await appendTurn(sessionAttrs, event, negativeContent); } catch (e) { /* non-fatal */ }
         return {
           sessionState: {
-            sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
+            sessionAttributes: {
+              ...sessionAttrs,
+              ...(ticketResult.attributesToSet || {}),
+              conversationState: 'AWAITING_TRANSFER_CONFIRM'
+            },
             dialogAction: { type: 'ElicitIntent' },
             intent: {
               name             : 'FallbackIntent',
@@ -1065,17 +1174,47 @@ const handleChat = async (event) => {
     }
 
     if (isUnresolved || wantsTicket) {
-      const unresolvedContent = getMsg(lang, {
-        en: 'I\'m not able to submit ServiceNow requests on your behalf, but I can create an IT support ticket. Would you like me to do that? If so, please describe your problem.',
-        es: 'No puedo enviar solicitudes de ServiceNow en tu nombre, pero puedo crear un ticket de soporte. ¿Te gustaría que lo hiciera? Si es así, describe tu problema.',
-        pt: 'Não posso enviar solicitações do ServiceNow em seu nome, mas posso criar um ticket de suporte. Você gostaria que eu fizesse isso? Se sim, descreva seu problema.',
-        fr: 'Je ne peux pas soumettre des demandes ServiceNow en votre nom, mais je peux créer un ticket de support. Voulez-vous que je le fasse? Si oui, décrivez votre problème.',
-        de: 'Ich kann keine ServiceNow-Anfragen in Ihrem Namen einreichen, aber ich kann ein Support-Ticket erstellen. Möchten Sie das? Wenn ja, beschreiben Sie bitte Ihr Problem.'
-      });
+      console.log(`[chatHandler] AWAITING_RESOLUTION + unresolved/wantsTicket → auto-create incident + offer transfer`);
+      const issueTitle = sessionAttrs.lastKbQuestion || message;
+      let ticketResult;
+      try {
+        ticketResult = await handleCreateIncident({
+          ...event,
+          ticketTitle      : issueTitle,
+          contactAttributes: {
+            ...sessionAttrs,
+            incidentTitle:       issueTitle,
+            incidentDescription: issueTitle,
+            Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
+            wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
+            userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
+          }
+        });
+      } catch (incErr) {
+        console.error(`[chatHandler] auto-create incident failed: ${incErr.message}`);
+        const errContent = getMsg(lang, MESSAGES.sorryError);
+        try { await appendTurn(sessionAttrs, event, errContent); } catch (e) { /* non-fatal */ }
+        return {
+          sessionState: {
+            sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
+            dialogAction: { type: 'ElicitIntent' },
+            intent: { name: 'FallbackIntent', slots: {}, state: 'Fulfilled', confirmationState: 'None' }
+          },
+          messages: [{ contentType: 'PlainText', content: errContent }]
+        };
+      }
+
+      const incNumber = ticketResult.ticketNumber || 'N/A';
+      const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
+      const unresolvedContent = msgFn(firstName, incNumber);
       try { await appendTurn(sessionAttrs, event, unresolvedContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
-          sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
+          sessionAttributes: {
+            ...sessionAttrs,
+            ...(ticketResult.attributesToSet || {}),
+            conversationState: 'AWAITING_TRANSFER_CONFIRM'
+          },
           dialogAction: { type: 'ElicitIntent' },
           intent: {
             name             : 'FallbackIntent',
