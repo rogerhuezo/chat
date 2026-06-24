@@ -270,6 +270,7 @@ const applyCatalogQuickReply = (result, platform) => {
   const state = result.sessionState?.sessionAttributes?.conversationState;
   if (state === 'AWAITING_CATALOG_FALLBACK') {
     const title = result.messages?.[0]?.content || '';
+    result = { ...result };
     result.messages = buildQuickReply(title, [{ title: 'Yes' }, { title: 'No' }], platform);
   }
   return result;
@@ -1094,10 +1095,7 @@ const handleChat = async (event) => {
               confirmationState: 'None'
             }
           },
-          messages: [{
-            contentType: 'PlainText',
-            content    : result.content
-          }]
+          messages: buildQuickReply(result.content, [{ title: 'Yes' }, { title: 'No' }], platform)
         };
       }
     }
@@ -1267,7 +1265,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: result.content }]
+        messages: buildQuickReply(result.content, [{ title: 'Yes' }, { title: 'No' }], platform)
       };
     }
 
