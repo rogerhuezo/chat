@@ -459,6 +459,91 @@ const dispatchTransfer = async ({ event, sessionAttrs, lang, firstName,
   };
 };
 
+// ── Auto-create incident + offer transfer helper ──────────────────────────────
+// Consolidates the incident-creation logic used by both the social/isNegative
+// and the direct AWAITING_RESOLUTION (isUnresolved/wantsTicket) paths.
+const createIncidentAndOfferTransfer = async ({ event, sessionAttrs, message, lang, firstName, attrs }) => {
+  // Build a meaningful incident title:
+  // 1. Use lastKbQuestion if available (the original user question to KB)
+  // 2. If message is a short negative phrase with no context, use lastKbAnswer summary or generic title
+  // 3. Otherwise fall back to the raw message
+  const SHORT_NEGATIVE_PHRASES = [
+    'no', 'nope', 'no thanks', 'no thank you', 'that didnt help',
+    'that did not help', 'still not working', 'not working', 'doesnt work',
+    'did not work', 'no it didnt', 'no it did not', 'not resolved',
+    'no gracias', 'nao', 'não', 'nein'
+  ];
+  const msgNorm = message.toLowerCase().replace(/[?!.'",]/g, '').replace(/\s+/g, ' ').trim();
+  const isShortNegative = SHORT_NEGATIVE_PHRASES.some(p => msgNorm === p);
+
+  let issueTitle;
+  if (sessionAttrs.lastKbQuestion) {
+    issueTitle = sessionAttrs.lastKbQuestion;
+  } else if (isShortNegative) {
+    // Message is just "no" or "still not working" with no useful context
+    if (sessionAttrs.lastKbAnswer) {
+      // Use a truncated version of the KB answer as context
+      const kbContext = sessionAttrs.lastKbAnswer.substring(0, 120).replace(/\n/g, ' ').trim();
+      issueTitle = `User reported unresolved issue after KB response: ${kbContext}`;
+    } else {
+      issueTitle = 'User reported unresolved issue after KB response';
+    }
+  } else {
+    issueTitle = message;
+  }
+
+  let ticketResult;
+  try {
+    ticketResult = await handleCreateIncident({
+      ...event,
+      ticketTitle      : issueTitle,
+      contactAttributes: {
+        ...sessionAttrs,
+        incidentTitle:       issueTitle,
+        incidentDescription: issueTitle,
+        Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
+        wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
+        userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
+      }
+    });
+  } catch (incErr) {
+    console.error(`[chatHandler] auto-create incident failed (unexpected throw): ${incErr.message}`);
+    ticketResult = null;
+  }
+
+  // handleCreateIncident catches its own errors internally and returns an
+  // error-shaped object (never throws in practice). Check ticketNumber explicitly
+  // to detect failure -- a missing ticketNumber means the ServiceNow call failed.
+  const incNumber = ticketResult && ticketResult.ticketNumber;
+
+  if (incNumber) {
+    // Success path: show ticket number and offer transfer
+    const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
+    const content = msgFn(firstName, incNumber);
+    return {
+      success: true,
+      content,
+      sessionAttributes: {
+        ...sessionAttrs,
+        ...(ticketResult.attributesToSet || {}),
+        conversationState: 'AWAITING_TRANSFER_CONFIRM'
+      }
+    };
+  } else {
+    // Failure path: inform user and still offer transfer to a live agent
+    console.warn(`[chatHandler] incident creation returned no ticketNumber — showing failure message`);
+    const content = getMsg(lang, MESSAGES.incidentCreationFailed);
+    return {
+      success: false,
+      content,
+      sessionAttributes: {
+        ...sessionAttrs,
+        conversationState: 'AWAITING_TRANSFER_CONFIRM'
+      }
+    };
+  }
+};
+
 // ── Main handler ───────────────────────────────────────────────────────────────
 const handleChat = async (event) => {
   const intent    = event.intent  || '';
@@ -967,46 +1052,11 @@ const handleChat = async (event) => {
 
       if (isNegative) {
         console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → auto-create incident + offer transfer`);
-        const issueTitle = sessionAttrs.lastKbQuestion || message;
-        let ticketResult;
-        try {
-          ticketResult = await handleCreateIncident({
-            ...event,
-            ticketTitle      : issueTitle,
-            contactAttributes: {
-              ...sessionAttrs,
-              incidentTitle:       issueTitle,
-              incidentDescription: issueTitle,
-              Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
-              wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
-              userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
-            }
-          });
-        } catch (incErr) {
-          console.error(`[chatHandler] auto-create incident failed: ${incErr.message}`);
-          const errContent = getMsg(lang, MESSAGES.sorryError);
-          try { await appendTurn(sessionAttrs, event, errContent); } catch (e) { /* non-fatal */ }
-          return {
-            sessionState: {
-              sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
-              dialogAction: { type: 'ElicitIntent' },
-              intent: { name: 'FallbackIntent', slots: {}, state: 'Fulfilled', confirmationState: 'None' }
-            },
-            messages: [{ contentType: 'PlainText', content: errContent }]
-          };
-        }
-
-        const incNumber = ticketResult.ticketNumber || 'N/A';
-        const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
-        const negativeContent = msgFn(firstName, incNumber);
-        try { await appendTurn(sessionAttrs, event, negativeContent); } catch (e) { /* non-fatal */ }
+        const result = await createIncidentAndOfferTransfer({ event, sessionAttrs, message, lang, firstName, attrs });
+        try { await appendTurn(sessionAttrs, event, result.content); } catch (e) { /* non-fatal */ }
         return {
           sessionState: {
-            sessionAttributes: {
-              ...sessionAttrs,
-              ...(ticketResult.attributesToSet || {}),
-              conversationState: 'AWAITING_TRANSFER_CONFIRM'
-            },
+            sessionAttributes: result.sessionAttributes,
             dialogAction: { type: 'ElicitIntent' },
             intent: {
               name             : 'FallbackIntent',
@@ -1017,7 +1067,7 @@ const handleChat = async (event) => {
           },
           messages: [{
             contentType: 'PlainText',
-            content    : negativeContent
+            content    : result.content
           }]
         };
       }
@@ -1175,46 +1225,11 @@ const handleChat = async (event) => {
 
     if (isUnresolved || wantsTicket) {
       console.log(`[chatHandler] AWAITING_RESOLUTION + unresolved/wantsTicket → auto-create incident + offer transfer`);
-      const issueTitle = sessionAttrs.lastKbQuestion || message;
-      let ticketResult;
-      try {
-        ticketResult = await handleCreateIncident({
-          ...event,
-          ticketTitle      : issueTitle,
-          contactAttributes: {
-            ...sessionAttrs,
-            incidentTitle:       issueTitle,
-            incidentDescription: issueTitle,
-            Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
-            wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
-            userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
-          }
-        });
-      } catch (incErr) {
-        console.error(`[chatHandler] auto-create incident failed: ${incErr.message}`);
-        const errContent = getMsg(lang, MESSAGES.sorryError);
-        try { await appendTurn(sessionAttrs, event, errContent); } catch (e) { /* non-fatal */ }
-        return {
-          sessionState: {
-            sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
-            dialogAction: { type: 'ElicitIntent' },
-            intent: { name: 'FallbackIntent', slots: {}, state: 'Fulfilled', confirmationState: 'None' }
-          },
-          messages: [{ contentType: 'PlainText', content: errContent }]
-        };
-      }
-
-      const incNumber = ticketResult.ticketNumber || 'N/A';
-      const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
-      const unresolvedContent = msgFn(firstName, incNumber);
-      try { await appendTurn(sessionAttrs, event, unresolvedContent); } catch (e) { /* non-fatal */ }
+      const result = await createIncidentAndOfferTransfer({ event, sessionAttrs, message, lang, firstName, attrs });
+      try { await appendTurn(sessionAttrs, event, result.content); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
-          sessionAttributes: {
-            ...sessionAttrs,
-            ...(ticketResult.attributesToSet || {}),
-            conversationState: 'AWAITING_TRANSFER_CONFIRM'
-          },
+          sessionAttributes: result.sessionAttributes,
           dialogAction: { type: 'ElicitIntent' },
           intent: {
             name             : 'FallbackIntent',
@@ -1223,7 +1238,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: unresolvedContent }]
+        messages: [{ contentType: 'PlainText', content: result.content }]
       };
     }
 

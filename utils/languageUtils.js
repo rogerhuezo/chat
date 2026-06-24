@@ -165,6 +165,13 @@ const MESSAGES = {
     pt: (name, number) => `Criei o incidente **${number}** para o seu problema${name ? ', ' + name : ''}. Gostaria que eu conectasse você com um agente ao vivo para mais assistência?\n\nResponda **sim** ou **não**.`,
     fr: (name, number) => `J'ai créé l'incident **${number}** pour votre problème${name ? ', ' + name : ''}. Souhaitez-vous que je vous connecte avec un agent en direct pour une assistance supplémentaire?\n\nRépondez **oui** ou **non**.`,
     de: (name, number) => `Ich habe Incident **${number}** für Ihr Problem erstellt${name ? ', ' + name : ''}. Möchten Sie, dass ich Sie mit einem Live-Agenten für weitere Unterstützung verbinde?\n\nAntworten Sie mit **ja** oder **nein**.`
+  },
+  incidentCreationFailed: {
+    en: 'I wasn\'t able to create a ticket right now. Would you like me to connect you with a live agent who can help?\n\nReply **yes** or **no**.',
+    es: 'No pude crear un ticket en este momento. ¿Te gustaría que te conectara con un agente en vivo que pueda ayudarte?\n\nResponde **sí** o **no**.',
+    pt: 'Não consegui criar um ticket agora. Gostaria que eu conectasse você com um agente ao vivo que possa ajudar?\n\nResponda **sim** ou **não**.',
+    fr: 'Je n\'ai pas pu créer un ticket pour le moment. Souhaitez-vous que je vous connecte avec un agent en direct qui peut vous aider?\n\nRépondez **oui** ou **non**.',
+    de: 'Ich konnte gerade kein Ticket erstellen. Möchten Sie, dass ich Sie mit einem Live-Agenten verbinde, der Ihnen helfen kann?\n\nAntworten Sie mit **ja** oder **nein**.'
   }
 };
 
