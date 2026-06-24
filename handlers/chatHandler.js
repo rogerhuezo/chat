@@ -651,7 +651,7 @@ const handleChat = async (event) => {
   if (prevState === 'AWAITING_SYSTEM_CHOICE') {
     const pendingMsg    = sessionAttrs.pendingMessage || '';
     const chose1orPos   = /\b(1|pos|till|register|aptos|caja|registro)\b/i.test(message);
-    const chose2orOkta  = /\b(2|okta|computer|apps?|email|teams|computadora|correo)\b/i.test(message);
+    const chose2orOkta  = /\b(2|okta|apps?|email|teams|correo)\b/i.test(message);
 
     if (chose1orPos) {
       console.log(`[chatHandler] disambiguation → POS selected`);
@@ -687,8 +687,8 @@ const handleChat = async (event) => {
 
     // Unclear response — re-prompt
     const reprompt = getMsg(lang, {
-      en: 'Please reply **1** for POS/register login or **2** for Okta/computer/apps login.',
-      es: 'Por favor responde **1** para POS/caja o **2** para Okta/computadora/apps.'
+      en: 'Please reply **1** for POS/register login or **2** for Okta/apps login.',
+      es: 'Por favor responde **1** para POS/caja o **2** para Okta/apps.'
     });
     try { await appendTurn(sessionAttrs, event, reprompt); } catch (e) { /* non-fatal */ }
     return {
@@ -699,7 +699,7 @@ const handleChat = async (event) => {
       },
       messages: buildQuickReply(
         reprompt,
-        [{ title: 'POS / Register' }, { title: 'Okta / Computer / Apps' }],
+        [{ title: 'POS / Register / Till' }, { title: 'Okta / Apps' }],
         platform
       )
     };
@@ -750,7 +750,7 @@ const handleChat = async (event) => {
     // Store user with generic password/reset/unlock keywords — force disambiguation
     // even if shouldHandlePos doesn't match (since POS_TRIGGER_KEYWORDS needs compound phrases)
     const isStoreUserPassword = /^store\d+@skechers\.com$/i.test(sessionAttrs.Email || '') &&
-      /\b(password|reset|unlock|locked out|locked|cant log in|cannot log in|can't log in)\b/i.test(message);
+      /\b(password|reset|unlock|locked out|locked|cant log in|cannot log in|can't log in|login|log in|sign in|signin|new hire|new hires)\b/i.test(message);
     const needsDisambiguation = isPosKeywordToo || (isStoreUserPassword && !hasOktaOnlySignal && !hasPosOnlySignal);
 
     // If message has a clear POS signal, skip Okta entirely → let POS handler (Priority 1.2) handle it
@@ -762,11 +762,11 @@ const handleChat = async (event) => {
       const disambigMsg = getMsg(lang, {
         en: 'I want to make sure I help you with the right system. Is this for:\n\n' +
             '1️⃣ **POS / Register / Till** — the login at the store register (Aptos One)\n' +
-            '2️⃣ **Okta / Computer / Apps** — email, Teams, or other app logins\n\n' +
+            '2️⃣ **Okta / Apps** — email, Teams, or other app logins\n\n' +
             'Please reply **1** for POS or **2** for Okta.',
         es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:\n\n' +
             '1️⃣ **POS / Registro / Caja** — el inicio de sesión en la caja registradora (Aptos One)\n' +
-            '2️⃣ **Okta / Computadora / Apps** — correo, Teams, u otras aplicaciones\n\n' +
+            '2️⃣ **Okta / Apps** — correo, Teams, u otras aplicaciones\n\n' +
             'Por favor responde **1** para POS o **2** para Okta.'
       });
 
@@ -784,7 +784,7 @@ const handleChat = async (event) => {
         },
         messages: buildQuickReply(
           disambigMsg,
-          [{ title: 'POS / Register' }, { title: 'Okta / Computer / Apps' }],
+          [{ title: 'POS / Register / Till' }, { title: 'Okta / Apps' }],
           platform
         )
       };
