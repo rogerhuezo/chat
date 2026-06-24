@@ -29,7 +29,9 @@ const BREAKFIX_PATTERNS = [
   /\bestoy\s+teniendo\s+problemas\b/i,
   // PT
   /\bestou\s+(tendo|com)\s+(um\s+)?erro\b/i,
-  /\bnão\s+funciona\b/i
+  /\bnão\s+funciona\b/i,
+  // General "need/want help/assistance with/for" — break/fix territory
+  /\b(need|want)\s+(assistance|help)\s+(with|for)\b/i
 ];
 
 // ── How-to patterns always route to KB (Bedrock), never to catalog ────────────

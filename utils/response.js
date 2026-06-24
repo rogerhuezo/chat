@@ -83,4 +83,34 @@ const lexDelegate = (event, sessionAttributes = {}) => ({
   }
 });
 
-module.exports = { ok, error, transfer, lexOpen, lexElicit, lexClose, lexDelegate };
+// ── Quick Reply builder for Amazon Connect Chat ────────────────────────────
+
+/**
+ * buildQuickReply - Returns a Lex V2 messages array using QuickReply CustomPayload
+ * for Amazon Connect Chat, or PlainText fallback for other platforms (e.g. Lex console).
+ *
+ * @param {string} title - The question/prompt text shown to the user
+ * @param {Array<string|{title:string, subtitle?:string}>} options - Quick reply button labels
+ * @param {string} platform - The channel platform (e.g. 'Connect Chat')
+ * @returns {Array<{contentType:string, content:string}>} messages array for Lex V2 response
+ */
+const buildQuickReply = (title, options, platform) => {
+  if (platform === 'Connect Chat') {
+    const elements = options.map(o => (typeof o === 'string' ? { title: o } : o));
+    const payload = {
+      templateType: 'QuickReply',
+      version: '1.0',
+      data: {
+        content: {
+          title,
+          elements
+        }
+      }
+    };
+    return [{ contentType: 'CustomPayload', content: JSON.stringify(payload) }];
+  }
+  // Fallback for Lex test console and other non-Connect platforms
+  return [{ contentType: 'PlainText', content: title }];
+};
+
+module.exports = { ok, error, transfer, lexOpen, lexElicit, lexClose, lexDelegate, buildQuickReply };

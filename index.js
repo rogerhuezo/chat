@@ -104,6 +104,7 @@ exports.handler = async (event) => {
       intent:            intent,
       sessionId:         sessionId,
       sessionState:      event.sessionState,
+      requestAttributes: event.requestAttributes || {},
       contactAttributes: {
         ...attrs,
         userAudience: attrs.userAudience || '',

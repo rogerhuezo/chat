@@ -22,6 +22,7 @@ const { getTransferRegion,
         normalizeCountryCode }            = require('../utils/regionUtils');
 const { resolveLanguage, getMsg,
         MESSAGES }                        = require('../utils/languageUtils');
+const { buildQuickReply }                 = require('../utils/response');
 
 // ── Intent groups ──────────────────────────────────────────────────────────────
 const INCIDENT_INTENTS = ['LogIncident', 'CreateIncident'];
@@ -262,6 +263,17 @@ const lexOkta = (content, attrs) => ({
   },
   messages: [{ contentType: 'PlainText', content }]
 });
+
+// ── Apply quick reply to catalog fallback responses ───────────────────────────
+const applyCatalogQuickReply = (result, platform) => {
+  if (!result) return result;
+  const state = result.sessionState?.sessionAttributes?.conversationState;
+  if (state === 'AWAITING_CATALOG_FALLBACK') {
+    const title = result.messages?.[0]?.content || '';
+    result.messages = buildQuickReply(title, [{ title: 'Yes' }, { title: 'No' }], platform);
+  }
+  return result;
+};
 
 // ── Shared Okta dispatcher ────────────────────────────────────────────────────
 const dispatchOkta = async ({ event, sessionAttrs, msgLower, message, lang,
@@ -552,6 +564,7 @@ const handleChat = async (event) => {
   const slots     = event.sessionState?.intent?.slots || {};
   const prevState = attrs.conversationState || '';
   const firstName = (attrs.Name || attrs['HostedWidget-customerName'] || '').split(' ')[0] || '';
+  const platform  = (event.requestAttributes && event.requestAttributes['x-amz-lex:channels:platform']) || '';
 
   const lang = resolveLanguage(attrs, message, intent);
   const countryCode = normalizeCountryCode(attrs.CountryCode || 'US');
@@ -672,7 +685,11 @@ const handleChat = async (event) => {
         dialogAction: { type: 'ElicitIntent' },
         intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
       },
-      messages: [{ contentType: 'PlainText', content: reprompt }]
+      messages: buildQuickReply(
+        reprompt,
+        [{ title: 'POS / Register' }, { title: 'Okta / Computer / Apps' }],
+        platform
+      )
     };
   }
 
@@ -708,7 +725,7 @@ const handleChat = async (event) => {
       });
       const catalogContent = catalogResult?.messages?.[0]?.content || '';
       try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-      return catalogResult;
+      return applyCatalogQuickReply(catalogResult, platform);
     }
   }
 
@@ -747,7 +764,11 @@ const handleChat = async (event) => {
           dialogAction: { type: 'ElicitIntent' },
           intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
         },
-        messages: [{ contentType: 'PlainText', content: disambigMsg }]
+        messages: buildQuickReply(
+          disambigMsg,
+          [{ title: 'POS / Register' }, { title: 'Okta / Computer / Apps' }],
+          platform
+        )
       };
     } else {
       // No POS signal — dispatch to Okta
@@ -845,7 +866,11 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: repromptMsg }]
+      messages: buildQuickReply(
+        repromptMsg,
+        [{ title: 'Yes' }, { title: 'No' }],
+        platform
+      )
     };
   }
   // ── End v1.2.0 AWAITING_OKTA_TRANSFER_CONFIRM ─────────────────────────────
@@ -925,7 +950,11 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: repromptMsg }]
+      messages: buildQuickReply(
+        repromptMsg,
+        [{ title: 'Yes' }, { title: 'No' }],
+        platform
+      )
     };
   }
   // ── End AWAITING_TRANSFER_CONFIRM ─────────────────────────────────────────
@@ -981,7 +1010,7 @@ const handleChat = async (event) => {
     });
     const catalogContent = catalogResult?.messages?.[0]?.content || '';
     try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-    return catalogResult;
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1128,7 +1157,7 @@ const handleChat = async (event) => {
     });
     const catalogContent = catalogResult?.messages?.[0]?.content || '';
     try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-    return catalogResult;
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   if (prevState === 'AWAITING_CATALOG_FALLBACK') {
@@ -1191,7 +1220,7 @@ const handleChat = async (event) => {
       });
       const catalogContent = catalogResult?.messages?.[0]?.content || '';
       try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-      return catalogResult;
+      return applyCatalogQuickReply(catalogResult, platform);
     }
 
     const isResolved   = RESOLVED_PATTERNS.some(p => msgLower.includes(p));
@@ -1284,7 +1313,11 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: repromptContent }]
+      messages: buildQuickReply(
+        repromptContent,
+        [{ title: 'That helped' }, { title: 'Still need help' }, { title: 'Talk to agent' }],
+        platform
+      )
     };
   }
 
@@ -1324,7 +1357,7 @@ const handleChat = async (event) => {
     });
     const catalogContent = catalogResult?.messages?.[0]?.content || '';
     try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-    return catalogResult;
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   if (INCIDENT_INTENTS.includes(intent)) {
@@ -1419,7 +1452,7 @@ const handleChat = async (event) => {
     });
     const catalogContent = catalogResult?.messages?.[0]?.content || '';
     try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
-    return catalogResult;
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   const TICKET_KEYWORDS = [
