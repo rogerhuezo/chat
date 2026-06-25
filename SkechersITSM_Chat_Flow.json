@@ -709,6 +709,24 @@
           "x": 1730,
           "y": 460
         }
+      },
+      "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1": {
+        "position": {
+          "x": 1051.2,
+          "y": 600
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "a1a1b2b2-c3c3-d4d4-e5e5-f6f6a7a7b8b8",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "true"
+          }
+        ]
       }
     },
     "Annotations": [],
@@ -1513,7 +1531,7 @@
             }
           },
           {
-            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "NextAction": "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -1591,6 +1609,33 @@
           {
             "NextAction": "6c0df77b-026a-4d97-90d7-12231484601d",
             "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.transferRequested"
+      },
+      "Identifier": "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+        "Conditions": [
+          {
+            "NextAction": "4202aff7-5603-47c4-915f-79c7fa444a63",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "ErrorType": "NoMatchingCondition"
           }
         ]
       }
