@@ -691,6 +691,42 @@
             "value": "GetIncidentStatus"
           }
         ]
+      },
+      "a1b2c3d4-1002-4002-8002-a00e71c50002": {
+        "position": {
+          "x": 1740,
+          "y": 30
+        }
+      },
+      "a1b2c3d4-2002-4002-8002-e00e71c50002": {
+        "position": {
+          "x": 1730,
+          "y": 260
+        }
+      },
+      "a1b2c3d4-3002-4002-8002-a00e71c50005": {
+        "position": {
+          "x": 1730,
+          "y": 460
+        }
+      },
+      "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1": {
+        "position": {
+          "x": 1051.2,
+          "y": 600
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "a1a1b2b2-c3c3-d4d4-e5e5-f6f6a7a7b8b8",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "true"
+          }
+        ]
       }
     },
     "Annotations": [],
@@ -841,7 +877,7 @@
       "Identifier": "3f68542f-15f1-4bdb-8ec5-35b3a21ace50",
       "Type": "UpdateContactTargetQueue",
       "Transitions": {
-        "NextAction": "181122dd-698c-46e0-9f08-b7122ae40bc3",
+        "NextAction": "a1b2c3d4-2002-4002-8002-e00e71c50002",
         "Errors": [
           {
             "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
@@ -857,7 +893,7 @@
       "Identifier": "31ab221c-e5ac-4a2c-899d-5532f8a36223",
       "Type": "UpdateContactTargetQueue",
       "Transitions": {
-        "NextAction": "6c0df77b-026a-4d97-90d7-12231484601d",
+        "NextAction": "a1b2c3d4-3002-4002-8002-a00e71c50005",
         "Errors": [
           {
             "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
@@ -873,7 +909,7 @@
       "Identifier": "7d8b11fa-8e03-4ae2-9daa-81e95f487c47",
       "Type": "UpdateContactTargetQueue",
       "Transitions": {
-        "NextAction": "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d",
+        "NextAction": "a1b2c3d4-1002-4002-8002-a00e71c50002",
         "Errors": [
           {
             "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
@@ -1495,7 +1531,7 @@
             }
           },
           {
-            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "NextAction": "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -1525,6 +1561,81 @@
           {
             "NextAction": "f1b2c3d4-0006-0006-0006-f1b2c3d40006",
             "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "The time in queue is less than 5 minutes. An agent will be with you shortly."
+      },
+      "Identifier": "a1b2c3d4-1002-4002-8002-a00e71c50002",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d",
+        "Errors": [
+          {
+            "NextAction": "b0dd1051-e4f0-4bae-9f09-2c1ba82ca30d",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "The time in queue is less than 5 minutes. An agent will be with you shortly."
+      },
+      "Identifier": "a1b2c3d4-2002-4002-8002-e00e71c50002",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "181122dd-698c-46e0-9f08-b7122ae40bc3",
+        "Errors": [
+          {
+            "NextAction": "181122dd-698c-46e0-9f08-b7122ae40bc3",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "The time in queue is less than 5 minutes. An agent will be with you shortly."
+      },
+      "Identifier": "a1b2c3d4-3002-4002-8002-a00e71c50005",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "6c0df77b-026a-4d97-90d7-12231484601d",
+        "Errors": [
+          {
+            "NextAction": "6c0df77b-026a-4d97-90d7-12231484601d",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.transferRequested"
+      },
+      "Identifier": "a1b2c3d4-f1f1-4a4a-8b8b-c0c0d0e0f1a1",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+        "Conditions": [
+          {
+            "NextAction": "4202aff7-5603-47c4-915f-79c7fa444a63",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10b574b9-4853-4db4-98f2-e123195c2854",
+            "ErrorType": "NoMatchingCondition"
           }
         ]
       }

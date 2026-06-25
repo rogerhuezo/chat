@@ -6,7 +6,7 @@ const CONNECT_QUEUES = {
   'North America': 'NA Service Chat',
   'Europe':        'EU Service Chat',
   'Latin America': 'Latam Service Chat',
-  'Asia':          'NA Service Chat',   // APAC handled by NA team per Connect flow
+  'Asia':          'ASIA Service Chat',
   'default':       'NA Service Chat'
 };
 

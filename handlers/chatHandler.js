@@ -22,6 +22,7 @@ const { getTransferRegion,
         normalizeCountryCode }            = require('../utils/regionUtils');
 const { resolveLanguage, getMsg,
         MESSAGES }                        = require('../utils/languageUtils');
+const { buildQuickReply }                 = require('../utils/response');
 
 // ── Intent groups ──────────────────────────────────────────────────────────────
 const INCIDENT_INTENTS = ['LogIncident', 'CreateIncident'];
@@ -263,6 +264,18 @@ const lexOkta = (content, attrs) => ({
   messages: [{ contentType: 'PlainText', content }]
 });
 
+// ── Apply quick reply to catalog fallback responses ───────────────────────────
+const applyCatalogQuickReply = (result, platform) => {
+  if (!result) return result;
+  const state = result.sessionState?.sessionAttributes?.conversationState;
+  if (state === 'AWAITING_CATALOG_FALLBACK') {
+    const title = result.messages?.[0]?.content || '';
+    result = { ...result };
+    result.messages = buildQuickReply(title, [{ title: 'Yes' }, { title: 'No' }], platform);
+  }
+  return result;
+};
+
 // ── Shared Okta dispatcher ────────────────────────────────────────────────────
 const dispatchOkta = async ({ event, sessionAttrs, msgLower, message, lang,
                                countryCode, intent, doTicketLookup }) => {
@@ -415,6 +428,9 @@ const dispatchTransfer = async ({ event, sessionAttrs, lang, firstName,
 
   console.log(`[chatHandler] transfer → region: "${transferRegion}" queue: "${queue}"`);
 
+  // Log the transfer turn before closing
+  try { await appendTurn(sessionAttrs, event, transferMsg); } catch (e) { /* non-fatal */ }
+
   // ✅ FIXED v1.2.2: guard closeInteraction — log clearly if not available
   if (typeof closeInteraction === 'function') {
   try {
@@ -456,6 +472,91 @@ const dispatchTransfer = async ({ event, sessionAttrs, lang, firstName,
   };
 };
 
+// ── Auto-create incident + offer transfer helper ──────────────────────────────
+// Consolidates the incident-creation logic used by both the social/isNegative
+// and the direct AWAITING_RESOLUTION (isUnresolved/wantsTicket) paths.
+const createIncidentAndOfferTransfer = async ({ event, sessionAttrs, message, lang, firstName, attrs }) => {
+  // Build a meaningful incident title:
+  // 1. Use lastKbQuestion if available (the original user question to KB)
+  // 2. If message is a short negative phrase with no context, use lastKbAnswer summary or generic title
+  // 3. Otherwise fall back to the raw message
+  const SHORT_NEGATIVE_PHRASES = [
+    'no', 'nope', 'no thanks', 'no thank you', 'that didnt help',
+    'that did not help', 'still not working', 'not working', 'doesnt work',
+    'did not work', 'no it didnt', 'no it did not', 'not resolved',
+    'no gracias', 'nao', 'não', 'nein'
+  ];
+  const msgNorm = message.toLowerCase().replace(/[?!.'",]/g, '').replace(/\s+/g, ' ').trim();
+  const isShortNegative = SHORT_NEGATIVE_PHRASES.some(p => msgNorm === p);
+
+  let issueTitle;
+  if (sessionAttrs.lastKbQuestion) {
+    issueTitle = sessionAttrs.lastKbQuestion;
+  } else if (isShortNegative) {
+    // Message is just "no" or "still not working" with no useful context
+    if (sessionAttrs.lastKbAnswer) {
+      // Use a truncated version of the KB answer as context
+      const kbContext = sessionAttrs.lastKbAnswer.substring(0, 120).replace(/\n/g, ' ').trim();
+      issueTitle = `User reported unresolved issue after KB response: ${kbContext}`;
+    } else {
+      issueTitle = 'User reported unresolved issue after KB response';
+    }
+  } else {
+    issueTitle = message;
+  }
+
+  let ticketResult;
+  try {
+    ticketResult = await handleCreateIncident({
+      ...event,
+      ticketTitle      : issueTitle,
+      contactAttributes: {
+        ...sessionAttrs,
+        incidentTitle:       issueTitle,
+        incidentDescription: issueTitle,
+        Name:       event.customerName || attrs['HostedWidget-customerName'] || attrs.Name  || '',
+        wdUsername: event.userID       || attrs['HostedWidget-userID']       || attrs.Email || '',
+        userId:     event.userID       || attrs['HostedWidget-userID']       || attrs.Email || ''
+      }
+    });
+  } catch (incErr) {
+    console.error(`[chatHandler] auto-create incident failed (unexpected throw): ${incErr.message}`);
+    ticketResult = null;
+  }
+
+  // handleCreateIncident catches its own errors internally and returns an
+  // error-shaped object (never throws in practice). Check ticketNumber explicitly
+  // to detect failure -- a missing ticketNumber means the ServiceNow call failed.
+  const incNumber = ticketResult && ticketResult.ticketNumber;
+
+  if (incNumber) {
+    // Success path: show ticket number and offer transfer
+    const msgFn = MESSAGES.incidentCreatedOfferTransfer[lang] || MESSAGES.incidentCreatedOfferTransfer['en'];
+    const content = msgFn(firstName, incNumber);
+    return {
+      success: true,
+      content,
+      sessionAttributes: {
+        ...sessionAttrs,
+        ...(ticketResult.attributesToSet || {}),
+        conversationState: 'AWAITING_TRANSFER_CONFIRM'
+      }
+    };
+  } else {
+    // Failure path: inform user and still offer transfer to a live agent
+    console.warn(`[chatHandler] incident creation returned no ticketNumber — showing failure message`);
+    const content = getMsg(lang, MESSAGES.incidentCreationFailed);
+    return {
+      success: false,
+      content,
+      sessionAttributes: {
+        ...sessionAttrs,
+        conversationState: 'AWAITING_TRANSFER_CONFIRM'
+      }
+    };
+  }
+};
+
 // ── Main handler ───────────────────────────────────────────────────────────────
 const handleChat = async (event) => {
   const intent    = event.intent  || '';
@@ -464,6 +565,7 @@ const handleChat = async (event) => {
   const slots     = event.sessionState?.intent?.slots || {};
   const prevState = attrs.conversationState || '';
   const firstName = (attrs.Name || attrs['HostedWidget-customerName'] || '').split(' ')[0] || '';
+  const platform  = (event.requestAttributes && event.requestAttributes['x-amz-lex:channels:platform']) || '';
 
   const lang = resolveLanguage(attrs, message, intent);
   const countryCode = normalizeCountryCode(attrs.CountryCode || 'US');
@@ -549,16 +651,27 @@ const handleChat = async (event) => {
   if (prevState === 'AWAITING_SYSTEM_CHOICE') {
     const pendingMsg    = sessionAttrs.pendingMessage || '';
     const chose1orPos   = /\b(1|pos|till|register|aptos|caja|registro)\b/i.test(message);
-    const chose2orOkta  = /\b(2|okta|computer|apps?|email|teams|computadora|correo)\b/i.test(message);
+    const chose2orOkta  = /\b(2|okta|apps?|email|teams|correo|workday|skechforce|mao)\b/i.test(message);
 
     if (chose1orPos) {
       console.log(`[chatHandler] disambiguation → POS selected`);
+      // If pending message is a generic password/reset phrase (not a detailed POS issue),
+      // transfer directly to live agent instead of routing through POS handler
+      const genericPasswordPhrase = /^(i need to |i want to |can you |please )?(reset|unlock|change)?\s*(my )?(password|account|login)$/i.test(pendingMsg.trim()) ||
+        /^(reset|unlock|password|locked out|cant log in|cannot log in|can't log in|i forgot my password|forgot password|forgot my password)$/i.test(pendingMsg.trim().toLowerCase().replace(/[?!.'",]/g, ''));
+      if (genericPasswordPhrase || !pendingMsg) {
+        console.log(`[chatHandler] disambiguation → POS selected with generic phrase — transferring to live agent`);
+        return dispatchTransfer({ event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' }, lang, firstName, countryCode });
+      }
       // Route to POS handler with the original pending message
       const posResponse = await dispatchPos({
         event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' },
         msgLower: pendingMsg.toLowerCase(), message: pendingMsg, lang, countryCode
       });
       if (posResponse) return posResponse;
+      // POS handler didn't handle it — fall through to transfer
+      console.log(`[chatHandler] disambiguation → POS handler declined, transferring to live agent`);
+      return dispatchTransfer({ event, sessionAttrs: { ...sessionAttrs, conversationState: 'IDLE', pendingMessage: '' }, lang, firstName, countryCode });
     }
 
     if (chose2orOkta) {
@@ -574,16 +687,21 @@ const handleChat = async (event) => {
 
     // Unclear response — re-prompt
     const reprompt = getMsg(lang, {
-      en: 'Please reply **1** for POS/register login or **2** for Okta/computer/apps login.',
-      es: 'Por favor responde **1** para POS/caja o **2** para Okta/computadora/apps.'
+      en: 'I want to make sure I help you with the right system. Is this for:',
+      es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:'
     });
+    try { await appendTurn(sessionAttrs, event, reprompt); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_SYSTEM_CHOICE' },
         dialogAction: { type: 'ElicitIntent' },
         intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
       },
-      messages: [{ contentType: 'PlainText', content: reprompt }]
+      messages: buildQuickReply(
+        reprompt,
+        [{ title: 'POS / Register / Till / Other' }, { title: 'Okta / Workday / Skechforce / MAO / Other' }],
+        platform
+      )
     };
   }
 
@@ -612,11 +730,14 @@ const handleChat = async (event) => {
     const isAccessPhrase = ACCESS_REQUEST_PATTERNS.some(p => p.test(message));
     if (!isStoreUser && isAccessPhrase) {
       console.log(`[chatHandler] OktaIntent intercept → catalog redirect: "${message}"`);
-      return handleCatalogRequest({
+      const catalogResult = await handleCatalogRequest({
         ...event,
         userMessage      : message,
         contactAttributes: sessionAttrs
       });
+      const catalogContent = catalogResult?.messages?.[0]?.content || '';
+      try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+      return applyCatalogQuickReply(catalogResult, platform);
     }
   }
 
@@ -626,22 +747,24 @@ const handleChat = async (event) => {
     const hasOktaOnlySignal = /\b(okta|mfa|factors|sso|single sign|email login|apps? login|computer login)\b/i.test(message);
     const hasPosOnlySignal  = /\b(pos|till|register|aptos|staff code)\b/i.test(message);
 
+    // Store user with generic password/reset/unlock keywords — force disambiguation
+    // even if shouldHandlePos doesn't match (since POS_TRIGGER_KEYWORDS needs compound phrases)
+    const isStoreUserPassword = /^store\d+@skechers\.com$/i.test(sessionAttrs.Email || '') &&
+      /\b(password|reset|unlock|locked out|locked|cant log in|cannot log in|can't log in|login|log in|sign in|signin|new hire|new hires)\b/i.test(message);
+    const needsDisambiguation = isPosKeywordToo || (isStoreUserPassword && !hasOktaOnlySignal && !hasPosOnlySignal);
+
     // If message has a clear POS signal, skip Okta entirely → let POS handler (Priority 1.2) handle it
     if (hasPosOnlySignal && !hasOktaOnlySignal) {
       console.log(`[chatHandler] POS-only signal detected in Okta block — skipping Okta, will route to POS`);
-    } else if (isPosKeywordToo && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
+    } else if (needsDisambiguation && !hasOktaOnlySignal && !hasPosOnlySignal && !isOktaMidFlow && !sessionAttrs.posState) {
       // Ambiguous — ask user to clarify
       console.log(`[chatHandler] ambiguous Okta/POS — prompting disambiguation`);
       const disambigMsg = getMsg(lang, {
-        en: 'I want to make sure I help you with the right system. Is this for:\n\n' +
-            '1️⃣ **POS / Register / Till** — the login at the store register (Aptos One)\n' +
-            '2️⃣ **Okta / Computer / Apps** — email, Teams, or other app logins\n\n' +
-            'Please reply **1** for POS or **2** for Okta.',
-        es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:\n\n' +
-            '1️⃣ **POS / Registro / Caja** — el inicio de sesión en la caja registradora (Aptos One)\n' +
-            '2️⃣ **Okta / Computadora / Apps** — correo, Teams, u otras aplicaciones\n\n' +
-            'Por favor responde **1** para POS o **2** para Okta.'
+        en: 'I want to make sure I help you with the right system. Is this for:',
+        es: 'Quiero asegurarme de ayudarte con el sistema correcto. ¿Es para:'
       });
+
+      try { await appendTurn(sessionAttrs, event, disambigMsg); } catch (e) { /* non-fatal */ }
 
       return {
         sessionState: {
@@ -653,7 +776,11 @@ const handleChat = async (event) => {
           dialogAction: { type: 'ElicitIntent' },
           intent: { name: 'FallbackIntent', slots: {}, state: 'InProgress', confirmationState: 'None' }
         },
-        messages: [{ contentType: 'PlainText', content: disambigMsg }]
+        messages: buildQuickReply(
+          disambigMsg,
+          [{ title: 'POS / Register / Till / Other' }, { title: 'Okta / Workday / Skechforce / MAO / Other' }],
+          platform
+        )
       };
     } else {
       // No POS signal — dispatch to Okta
@@ -735,6 +862,7 @@ const handleChat = async (event) => {
       fr: 'Souhaitez-vous que je vous connecte avec un agent de support informatique? Veuillez répondre **oui** ou **non**.',
       de: 'Möchten Sie, dass ich Sie mit einem IT-Support-Mitarbeiter verbinde? Bitte antworten Sie mit **ja** oder **nein**.'
     });
+    try { await appendTurn(sessionAttrs, event, repromptMsg); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: {
@@ -750,10 +878,98 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: repromptMsg }]
+      messages: buildQuickReply(
+        repromptMsg,
+        [{ title: 'Yes' }, { title: 'No' }],
+        platform
+      )
     };
   }
   // ── End v1.2.0 AWAITING_OKTA_TRANSFER_CONFIRM ─────────────────────────────
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PRIORITY 1.6: AWAITING_TRANSFER_CONFIRM (post-incident auto-create)
+  // User was offered a live agent transfer after auto-incident creation.
+  // Must run BEFORE PRIORITY 2 so yes/no isn't swallowed by status or social.
+  // ══════════════════════════════════════════════════════════════════════════
+  if (prevState === 'AWAITING_TRANSFER_CONFIRM') {
+    console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — response: "${msgLower}"`);
+
+    const transferYesWords = ['yes', 'yeah', 'sure', 'yep', 'ok', 'okay', 'please',
+                              'si', 'sí', 'claro', 'sim', 'oui', 'ja'];
+    const transferNoWords  = ['no', 'nope', 'no thanks', 'no gracias', 'nao', 'não'];
+
+    const isTransferYes = transferYesWords.some(w => msgLower === w)
+      || TRANSFER_TRIGGER_WORDS.some(w => msgLower.includes(w))
+      || TRANSFER_INTENTS.includes(intent);
+
+    const isTransferNo = transferNoWords.some(w => msgLower === w);
+
+    if (isTransferYes) {
+      console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — yes → transferring`);
+      return dispatchTransfer({ event, sessionAttrs, lang, firstName, countryCode });
+    }
+
+    if (isTransferNo) {
+      console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — no → returning to IDLE`);
+      const declineMsg = getMsg(lang, {
+        en: `No problem${firstName ? ', ' + firstName : ''}! Let me know if you need anything else.`,
+        es: `¡Sin problema${firstName ? ', ' + firstName : ''}! Avísame si necesitas algo más.`,
+        pt: `Sem problema${firstName ? ', ' + firstName : ''}! Me avise se precisar de mais alguma coisa.`,
+        fr: `Pas de problème${firstName ? ', ' + firstName : ''}! N'hésitez pas si vous avez besoin d'autre chose.`,
+        de: `Kein Problem${firstName ? ', ' + firstName : ''}! Lassen Sie mich wissen, wenn Sie noch etwas brauchen.`
+      });
+      try { await appendTurn(sessionAttrs, event, declineMsg); } catch (e) { /* non-fatal */ }
+      return {
+        sessionState: {
+          sessionAttributes: {
+            ...sessionAttrs,
+            conversationState: 'IDLE'
+          },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'Fulfilled',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: declineMsg }]
+      };
+    }
+
+    // Unclear — re-prompt
+    console.log(`[chatHandler] AWAITING_TRANSFER_CONFIRM — unclear, re-prompting`);
+    const repromptMsg = getMsg(lang, {
+      en: 'Would you like me to connect you with a live agent? Reply **yes** or **no**.',
+      es: '¿Te gustaría que te conectara con un agente en vivo? Responde **sí** o **no**.',
+      pt: 'Gostaria que eu conectasse você com um agente ao vivo? Responda **sim** ou **não**.',
+      fr: 'Souhaitez-vous que je vous connecte avec un agent en direct? Répondez **oui** ou **non**.',
+      de: 'Möchten Sie, dass ich Sie mit einem Live-Agenten verbinde? Antworten Sie mit **ja** oder **nein**.'
+    });
+    try { await appendTurn(sessionAttrs, event, repromptMsg); } catch (e) { /* non-fatal */ }
+    return {
+      sessionState: {
+        sessionAttributes: {
+          ...sessionAttrs,
+          conversationState: 'AWAITING_TRANSFER_CONFIRM'
+        },
+        dialogAction: { type: 'ElicitIntent' },
+        intent: {
+          name             : 'FallbackIntent',
+          slots            : {},
+          state            : 'InProgress',
+          confirmationState: 'None'
+        }
+      },
+      messages: buildQuickReply(
+        repromptMsg,
+        [{ title: 'Yes' }, { title: 'No' }],
+        platform
+      )
+    };
+  }
+  // ── End AWAITING_TRANSFER_CONFIRM ─────────────────────────────────────────
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIORITY 2 — STATUS LOOKUP
@@ -799,11 +1015,14 @@ const handleChat = async (event) => {
   const isAccessRequest = ACCESS_REQUEST_PATTERNS.some(p => p.test(message));
   if (isAccessRequest) {
     console.log(`[chatHandler] access request guard → catalog: "${message}"`);
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -836,6 +1055,14 @@ const handleChat = async (event) => {
 
       if (isPositive) {
         console.log(`[chatHandler] AWAITING_RESOLUTION + positive social → resolved`);
+        const positiveContent = getMsg(lang, {
+          en: `Glad I could help${firstName ? ', ' + firstName : ''}! Is there anything else I can assist you with?`,
+          es: `Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! Hay algo mas en lo que pueda ayudarte?`,
+          pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! Ha mais alguma coisa em que posso ajuda-lo?`,
+          fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! Y a-t-il autre chose que je puisse faire pour vous?`,
+          de: `Schoen dass ich helfen konnte${firstName ? ', ' + firstName : ''}! Gibt es noch etwas womit ich Ihnen helfen kann?`
+        });
+        try { await appendTurn(sessionAttrs, event, positiveContent); } catch (e) { /* non-fatal */ }
         try {
           await closeInteraction(
             sessionAttrs.serviceNowInteractionId,
@@ -859,22 +1086,18 @@ const handleChat = async (event) => {
           },
           messages: [{
             contentType: 'PlainText',
-            content    : getMsg(lang, {
-              en: `Glad I could help${firstName ? ', ' + firstName : ''}! Is there anything else I can assist you with?`,
-              es: `Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! Hay algo mas en lo que pueda ayudarte?`,
-              pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! Ha mais alguma coisa em que posso ajuda-lo?`,
-              fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! Y a-t-il autre chose que je puisse faire pour vous?`,
-              de: `Schoen dass ich helfen konnte${firstName ? ', ' + firstName : ''}! Gibt es noch etwas womit ich Ihnen helfen kann?`
-            })
+            content    : positiveContent
           }]
         };
       }
 
       if (isNegative) {
-        console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → offer ticket`);
+        console.log(`[chatHandler] AWAITING_RESOLUTION + negative social → auto-create incident + offer transfer`);
+        const result = await createIncidentAndOfferTransfer({ event, sessionAttrs, message, lang, firstName, attrs });
+        try { await appendTurn(sessionAttrs, event, result.content); } catch (e) { /* non-fatal */ }
         return {
           sessionState: {
-            sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
+            sessionAttributes: result.sessionAttributes,
             dialogAction: { type: 'ElicitIntent' },
             intent: {
               name             : 'FallbackIntent',
@@ -883,16 +1106,7 @@ const handleChat = async (event) => {
               confirmationState: 'None'
             }
           },
-          messages: [{
-            contentType: 'PlainText',
-            content    : getMsg(lang, {
-              en: `I'm sorry the information didn't help${firstName ? ', ' + firstName : ''}. Would you like me to open a support ticket? If so, please describe your issue.`,
-              es: `Lo siento si la informacion no fue util${firstName ? ', ' + firstName : ''}. Te gustaria que abriera un ticket de soporte? Si es asi, describe tu problema.`,
-              pt: `Lamento se as informacoes nao foram uteis${firstName ? ', ' + firstName : ''}. Voce gostaria que eu abrisse um ticket de suporte? Se sim, descreva seu problema.`,
-              fr: `Je suis desole si les informations n'ont pas aide${firstName ? ', ' + firstName : ''}. Voulez-vous que j'ouvre un ticket de support? Si oui, decrivez votre probleme.`,
-              de: `Es tut mir leid wenn die Informationen nicht geholfen haben${firstName ? ', ' + firstName : ''}. Moechten Sie dass ich ein Support-Ticket oeffne? Wenn ja beschreiben Sie bitte Ihr Problem.`
-            })
-          }]
+          messages: buildQuickReply(result.content, [{ title: 'Yes' }, { title: 'No' }], platform)
         };
       }
     }
@@ -920,6 +1134,8 @@ const handleChat = async (event) => {
       ? `${getMsg(lang, MESSAGES.youreWelcome)}${firstName ? ' ' + firstName + '!' : '!'} ${getMsg(lang, MESSAGES.goodbye)}`
       : `${getMsg(lang, MESSAGES.youreWelcome)} ${getMsg(lang, MESSAGES.anythingElse)}`;
 
+    try { await appendTurn(sessionAttrs, event, content); } catch (e) { /* non-fatal */ }
+
     return {
       sessionState: {
         sessionAttributes: {
@@ -943,11 +1159,14 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (prevState === 'AWAITING_CATALOG_TERM' && message) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   if (prevState === 'AWAITING_CATALOG_FALLBACK') {
@@ -956,6 +1175,8 @@ const handleChat = async (event) => {
       .some(w => msgLower === w);
 
     if (wantsTicket) {
+      const catalogYesContent = getMsg(lang, MESSAGES.describeIssue);
+      try { await appendTurn(sessionAttrs, event, catalogYesContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -967,10 +1188,18 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, MESSAGES.describeIssue) }]
+        messages: [{ contentType: 'PlainText', content: catalogYesContent }]
       };
     }
 
+    const catalogNoContent = getMsg(lang, {
+      en: 'No problem! Is there anything else I can help you with?',
+      es: '¡Sin problema! ¿Hay algo más en lo que pueda ayudarte?',
+      pt: 'Sem problema! Há mais alguma coisa em que posso ajudá-lo?',
+      fr: 'Pas de problème! Y a-t-il autre chose que je puisse faire pour vous?',
+      de: 'Kein Problem! Gibt es noch etwas, womit ich Ihnen helfen kann?'
+    });
+    try { await appendTurn(sessionAttrs, event, catalogNoContent); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
@@ -982,13 +1211,7 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-        en: 'No problem! Is there anything else I can help you with?',
-        es: '¡Sin problema! ¿Hay algo más en lo que pueda ayudarte?',
-        pt: 'Sem problema! Há mais alguma coisa em que posso ajudá-lo?',
-        fr: 'Pas de problème! Y a-t-il autre chose que je puisse faire pour vous?',
-        de: 'Kein Problem! Gibt es noch etwas, womit ich Ihnen helfen kann?'
-      }) }]
+      messages: [{ contentType: 'PlainText', content: catalogNoContent }]
     };
   }
 
@@ -999,11 +1222,14 @@ const handleChat = async (event) => {
     }
 
     if (isCatalogRequest(msgLower, slots)) {
-      return handleCatalogRequest({
+      const catalogResult = await handleCatalogRequest({
         ...event,
         userMessage      : message,
         contactAttributes: sessionAttrs
       });
+      const catalogContent = catalogResult?.messages?.[0]?.content || '';
+      try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+      return applyCatalogQuickReply(catalogResult, platform);
     }
 
     const isResolved   = RESOLVED_PATTERNS.some(p => msgLower.includes(p));
@@ -1012,6 +1238,14 @@ const handleChat = async (event) => {
                          msgLower.includes('ticket') || msgLower.includes('incident');
 
     if (isResolved) {
+      const resolvedContent = getMsg(lang, {
+        en: `Glad I could help${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.en}`,
+        es: `¡Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.es}`,
+        pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.pt}`,
+        fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.fr}`,
+        de: `Schön, dass ich helfen konnte${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.de}`
+      });
+      try { await appendTurn(sessionAttrs, event, resolvedContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
@@ -1023,20 +1257,17 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: `Glad I could help${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.en}`,
-          es: `¡Me alegra haber podido ayudar${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.es}`,
-          pt: `Fico feliz em ter ajudado${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.pt}`,
-          fr: `Ravi d'avoir pu aider${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.fr}`,
-          de: `Schön, dass ich helfen konnte${firstName ? ', ' + firstName : ''}! ${MESSAGES.anythingElse.de}`
-        }) }]
+        messages: [{ contentType: 'PlainText', content: resolvedContent }]
       };
     }
 
     if (isUnresolved || wantsTicket) {
+      console.log(`[chatHandler] AWAITING_RESOLUTION + unresolved/wantsTicket → auto-create incident + offer transfer`);
+      const result = await createIncidentAndOfferTransfer({ event, sessionAttrs, message, lang, firstName, attrs });
+      try { await appendTurn(sessionAttrs, event, result.content); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
-          sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
+          sessionAttributes: result.sessionAttributes,
           dialogAction: { type: 'ElicitIntent' },
           intent: {
             name             : 'FallbackIntent',
@@ -1045,18 +1276,14 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'I\'m not able to submit ServiceNow requests on your behalf, but I can create an IT support ticket. Would you like me to do that? If so, please describe your problem.',
-          es: 'No puedo enviar solicitudes de ServiceNow en tu nombre, pero puedo crear un ticket de soporte. ¿Te gustaría que lo hiciera? Si es así, describe tu problema.',
-          pt: 'Não posso enviar solicitações do ServiceNow em seu nome, mas posso criar um ticket de suporte. Você gostaria que eu fizesse isso? Se sim, descreva seu problema.',
-          fr: 'Je ne peux pas soumettre des demandes ServiceNow en votre nom, mais je peux créer un ticket de support. Voulez-vous que je le fasse? Si oui, décrivez votre problème.',
-          de: 'Ich kann keine ServiceNow-Anfragen in Ihrem Namen einreichen, aber ich kann ein Support-Ticket erstellen. Möchten Sie das? Wenn ja, beschreiben Sie bitte Ihr Problem.'
-        }) }]
+        messages: buildQuickReply(result.content, [{ title: 'Yes' }, { title: 'No' }], platform)
       };
     }
 
     const kbFollowUp = await handleKnowledgeQuery(message, sessionAttrs);
     if (kbFollowUp?.response || kbFollowUp?.botResponse) {
+      const kbFollowUpContent = kbFollowUp.response || kbFollowUp.botResponse;
+      try { await appendTurn(sessionAttrs, event, kbFollowUpContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: {
@@ -1072,10 +1299,18 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: kbFollowUp.response || kbFollowUp.botResponse }]
+        messages: [{ contentType: 'PlainText', content: kbFollowUpContent }]
       };
     }
 
+    const repromptContent = getMsg(lang, {
+      en: 'I\'m sorry, I didn\'t quite catch that. Did the information help, or would you like me to open a support ticket?',
+      es: 'Lo siento, no entendí bien. ¿La información fue útil, o te gustaría que abriera un ticket de soporte?',
+      pt: 'Desculpe, não entendi bem. As informações foram úteis, ou você gostaria que eu abrisse um ticket de suporte?',
+      fr: 'Désolé, je n\'ai pas bien compris. L\'information a-t-elle aidé, ou souhaitez-vous que j\'ouvre un ticket de support?',
+      de: 'Entschuldigung, ich habe das nicht ganz verstanden. Hat die Information geholfen, oder soll ich ein Support-Ticket öffnen?'
+    });
+    try { await appendTurn(sessionAttrs, event, repromptContent); } catch (e) { /* non-fatal */ }
     return {
       sessionState: {
         sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_RESOLUTION' },
@@ -1087,17 +1322,45 @@ const handleChat = async (event) => {
           confirmationState: 'None'
         }
       },
-      messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-        en: 'I\'m sorry, I didn\'t quite catch that. Did the information help, or would you like me to open a support ticket?',
-        es: 'Lo siento, no entendí bien. ¿La información fue útil, o te gustaría que abriera un ticket de soporte?',
-        pt: 'Desculpe, não entendi bem. As informações foram úteis, ou você gostaria que eu abrisse um ticket de suporte?',
-        fr: 'Désolé, je n\'ai pas bien compris. L\'information a-t-elle aidé, ou souhaitez-vous que j\'ouvre un ticket de support?',
-        de: 'Entschuldigung, ich habe das nicht ganz verstanden. Hat die Information geholfen, oder soll ich ein Support-Ticket öffnen?'
-      }) }]
+      messages: buildQuickReply(
+        repromptContent,
+        [{ title: 'That helped' }, { title: 'Still need help' }, { title: 'Talk to agent' }],
+        platform
+      )
     };
   }
 
   if (prevState === 'AWAITING_DESCRIPTION') {
+    // Check for decline/exit phrases — user doesn't want to create a ticket
+    const declinePhrases = ['no', 'nope', 'no thanks', 'no thank you', 'nevermind',
+                            'never mind', 'cancel', 'forget it', 'no gracias',
+                            'não', 'nao', 'nein', 'non'];
+    const isDecline = declinePhrases.some(p => msgLower === p);
+    if (isDecline) {
+      console.log(`[chatHandler] AWAITING_DESCRIPTION — user declined, returning to IDLE`);
+      const declineContent = getMsg(lang, {
+        en: `No problem! Let me know if you need anything else.`,
+        es: `¡Sin problema! Avísame si necesitas algo más.`,
+        pt: `Sem problema! Me avise se precisar de mais alguma coisa.`,
+        fr: `Pas de problème! N'hésitez pas si vous avez besoin d'autre chose.`,
+        de: `Kein Problem! Lassen Sie mich wissen, wenn Sie noch etwas brauchen.`
+      });
+      try { await appendTurn(sessionAttrs, event, declineContent); } catch (e) { /* non-fatal */ }
+      return {
+        sessionState: {
+          sessionAttributes: { ...sessionAttrs, conversationState: 'IDLE' },
+          dialogAction: { type: 'ElicitIntent' },
+          intent: {
+            name             : 'FallbackIntent',
+            slots            : {},
+            state            : 'Fulfilled',
+            confirmationState: 'None'
+          }
+        },
+        messages: [{ contentType: 'PlainText', content: declineContent }]
+      };
+    }
+
     if (message && message.length > 5) {
       const ticketResult = await handleCreateIncident({
         ...event,
@@ -1115,6 +1378,10 @@ const handleChat = async (event) => {
       try { await appendTurn(sessionAttrs, event, content); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(ticketResult, { ...sessionAttrs, conversationState: 'IDLE' }, 'LogIncident');
     }
+
+    // Message too short — re-prompt
+    const describeContent = getMsg(lang, MESSAGES.describeIssue);
+    try { await appendTurn(sessionAttrs, event, describeContent); } catch (e) { /* non-fatal */ }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1122,11 +1389,14 @@ const handleChat = async (event) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (CATALOG_INTENTS.includes(intent)) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   if (INCIDENT_INTENTS.includes(intent)) {
@@ -1134,6 +1404,14 @@ const handleChat = async (event) => {
     const shortdescription = slots?.shortdescription?.value?.interpretedValue || null;
     if (!shortdescription) {
       console.log(`[chatHandler] LogIncident — shortdescription slot is null → ask for description`);
+      const descContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, descContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1145,13 +1423,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: descContent }]
       };
     }
   
@@ -1160,6 +1432,14 @@ const handleChat = async (event) => {
   
     if (isPureCreateRequest) {
       console.log(`[chatHandler] LogIncident pure create phrase → ask for description: "${message}"`);
+      const pureDescContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, pureDescContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1171,13 +1451,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a support ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket de soporte para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket de suporte para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket de support pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Support-Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: pureDescContent }]
       };
     }
   
@@ -1210,11 +1484,14 @@ const handleChat = async (event) => {
   }
 
   if ((intent === 'FallbackIntent' || !intent) && isCatalogRequest(msgLower, slots)) {
-    return handleCatalogRequest({
+    const catalogResult = await handleCatalogRequest({
       ...event,
       userMessage      : message,
       contactAttributes: sessionAttrs
     });
+    const catalogContent = catalogResult?.messages?.[0]?.content || '';
+    try { await appendTurn(sessionAttrs, event, catalogContent); } catch (e) { /* non-fatal */ }
+    return applyCatalogQuickReply(catalogResult, platform);
   }
 
   const TICKET_KEYWORDS = [
@@ -1228,6 +1505,14 @@ const handleChat = async (event) => {
 
   if ((intent === 'FallbackIntent' || !intent) && (TICKET_MATCH || PURE_REQUEST)) {
     if (PURE_REQUEST) {
+      const pureReqContent = getMsg(lang, {
+        en: 'Sure! Please describe your issue and I\'ll create a ticket for you.',
+        es: '¡Claro! Por favor describe tu problema y crearé un ticket para ti.',
+        pt: 'Claro! Por favor descreva seu problema e criarei um ticket para você.',
+        fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket pour vous.',
+        de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Ticket für Sie.'
+      });
+      try { await appendTurn(sessionAttrs, event, pureReqContent); } catch (e) { /* non-fatal */ }
       return {
         sessionState: {
           sessionAttributes: { ...sessionAttrs, conversationState: 'AWAITING_DESCRIPTION' },
@@ -1239,13 +1524,7 @@ const handleChat = async (event) => {
             confirmationState: 'None'
           }
         },
-        messages: [{ contentType: 'PlainText', content: getMsg(lang, {
-          en: 'Sure! Please describe your issue and I\'ll create a ticket for you.',
-          es: '¡Claro! Por favor describe tu problema y crearé un ticket para ti.',
-          pt: 'Claro! Por favor descreva seu problema e criarei um ticket para você.',
-          fr: 'Bien sûr! Veuillez décrire votre problème et je créerai un ticket pour vous.',
-          de: 'Natürlich! Bitte beschreiben Sie Ihr Problem und ich erstelle ein Ticket für Sie.'
-        }) }]
+        messages: [{ contentType: 'PlainText', content: pureReqContent }]
       };
     }
     const ticketResult = await handleCreateIncident({
@@ -1268,11 +1547,15 @@ const handleChat = async (event) => {
   if (intent === 'FallbackIntent' || !intent) {
     if (!message) {
       const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+      const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+      try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
     }
     const kbResult = await handleKnowledgeQuery(message, sessionAttrs);
     if (!kbResult?.response && !kbResult?.botResponse) {
       const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+      const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+      try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
       return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
     }
     const kbContent = kbResult.response || kbResult.botResponse;
@@ -1298,11 +1581,15 @@ const handleChat = async (event) => {
 
   if (!message) {
     const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+    const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+    try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
     return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
   }
   const defaultKbResult = await handleKnowledgeQuery(message, sessionAttrs);
   if (!defaultKbResult?.response && !defaultKbResult?.botResponse) {
     const fallbackResult = await handleFallback({ ...event, contactAttributes: sessionAttrs });
+    const fallbackContent = fallbackResult.response || fallbackResult.botResponse || '';
+    try { await appendTurn(sessionAttrs, event, fallbackContent); } catch (e) { /* non-fatal */ }
     return wrapLexResponse(fallbackResult, sessionAttrs, 'FallbackIntent');
   }
   const defaultContent = defaultKbResult.response || defaultKbResult.botResponse;

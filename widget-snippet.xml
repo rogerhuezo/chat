@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
+
+<style type="text/css">
+div[id*="amazon-connect"] button,
+div[id*="amazon-connect"] .launcher {
+    border-radius: 50% !important;
+}
+
+/* === Maximized state — CSS class toggle === */
+div[id*="amazon-connect"].aws-chat-maximized iframe {
+    width: calc(100vw - 40px) !important;
+    height: calc(100vh - 40px) !important;
+    max-width: none !important;
+    max-height: none !important;
+    right: 20px !important;
+    bottom: 20px !important;
+}
+
+/* Maximize/Minimize Toggle Button — positioned top-right of chat window */
+.aws-chat-maximize-btn {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 2147483647;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+}
+.aws-chat-maximize-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+.aws-chat-maximize-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+</style>
+
+<script type="text/javascript">
+<![CDATA[
+(function() {
+    'use strict';
+
+    // Prevent double loading
+    if (window.hasInitializedAWSConnect) return;
+    window.hasInitializedAWSConnect = true;
+
+    // === CONSTANTS ===
+    var CHAT_MINIMIZED_KEY = 'amazonConnectChatMinimized';
+    var CHAT_MAXIMIZED_KEY = 'amazonConnectChatMaximized';
+
+    // SVG icons for maximize/minimize
+    var MAXIMIZE_ICON = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM6 14v4h4v2H4v-6h2zm12 0v4h-4v2h6v-6h-2z" fill="currentColor"/></svg>';
+    var MINIMIZE_ICON = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 4v4H5v2h6V4H9zm6 0v6h6V8h-4V4h-2zM5 14h4v6h2v-6H5v2h0zm10 0v6h2v-4h4v-2h-6z" fill="currentColor"/></svg>';
+
+    // === FETCH USER DATA VIA GLIDEAJAX ===
+    var ga = new GlideAjax("SKX_getUserDetails");
+    ga.addParam("sysparm_name", "getChatInitData");
+    ga.getXMLAnswer(function(response) {
+
+        if (!response) return;
+
+        try {
+            var data = JSON.parse(response);
+            console.log('[AWS Chat Debug]', JSON.stringify(data.user));
+
+            // Security check - abort if not authenticated
+            if (!data.user || !data.user.userID) return;
+
+            // Config check
+            if (!data.config || !data.config.instanceId) return;
+
+            initializeWidget(data.config, data.user);
+
+        } catch(e) {
+            console.error('[AWS Chat Backend]: Error parsing response: ' + e);
+        }
+    });
+
+    function initializeWidget(config, user) {
+
+        // 1. Inject AWS Widget Script
+        (function(w, d, x, id) {
+            var s = d.createElement('script');
+            s.src = 'https://skx-prod-int.my.connect.aws/connectwidget/static/amazon-connect-chat-interface-client.js';
+            s.async = 1;
+            s.id = id;
+            d.getElementsByTagName('head')[0].appendChild(s);
+            w[x] = w[x] || function() {
+                (w[x].ac = w[x].ac || []).push(arguments);
+            };
+        })(window, document, 'amazon_connect', '957234ac-9601-4b31-9332-e182ca935577');
+
+        // 2. Styles
+        amazon_connect('styles', {
+            iconType: 'CHAT',
+            openChat:  { color: '#ffffff', backgroundColor: '#123456' },
+            closeChat: { color: '#ffffff', backgroundColor: '#123456' }
+        });
+
+        // 3. Custom Size (normal default)
+        amazon_connect('customStyles', {
+            global: {
+                frameWidth:  '600px',
+                frameHeight: '800px'
+            }
+        });
+
+        // 4. Snippet ID
+        amazon_connect('snippetId', 'QVFJREFIaFg3VVJ2dFRXb2IrUUdndUkvUzRJMnRnQ1NJL3Erc1JKT0lFQ3lCQlNlUEFFWEt1QlFsWnlTV0NnU1dSUFN4RjE3QUFBQWJqQnNCZ2txaGtpRzl3MEJCd2FnWHpCZEFnRUFNRmdHQ1NxR1NJYjNEUUVIQVRBZUJnbGdoa2dCWlFNRUFTNHdFUVFNSnpWeTJCU2JuK1FVcTE1Y0FnRVFnQ3VSeENLZFh6eVhwYkRKN1Rud0pkYVg1WFByaTVqQmp5M3dUUzBTcmJBNStVUGNxTzU4MndIWFZTcTA6Ok5xVHY1L3hLTFFISHpUbE1xL1k2VUpLa1hkcGduVU9oRHBGdENSTUxPQkJOU2VNZVFlRTBhOXBKZm9CMXlFajQ4cU50RzNTSFBRcHVVQW5WbGQyaXpyMFNYZnVyS0RyVGhLbEVyTGM1QkRsdVpxZmEwL005K2lhdmtQS0ZBVnd2UWl1TkgzR1BsOGZMektJNXo4N2lSM3dOQS9KaFowZz0=');
+
+        // 5. Supported content types
+        amazon_connect('supportedMessagingContentTypes', [
+            'text/plain',
+            'text/markdown',
+            'application/vnd.amazonaws.connect.message.interactive',
+            'application/vnd.amazonaws.connect.message.interactive.response'
+        ]);
+
+        // 6. Customer display name
+        amazon_connect('customerDisplayName', function(callback) {
+            callback(user.fullName);
+        });
+
+        // 7. Contact attributes - passed to Connect - Lex
+        amazon_connect('contactAttributes', {
+            'Name':          user.fullName   || '',
+            'UserInfo':      user.userID     || '',
+            'Details':       user.email      || '',
+            'Language':      'en',
+            'CountryCode':   user.country    || '',
+            'CountryName':   user.country    || '',
+            'Region':        user.location   || '',
+            'customerName':  user.fullName   || '',
+            'firstName':     user.firstName  || '',
+            'lastName':      user.lastName   || '',
+            'customerEmail': user.email      || '',
+            'department':    user.department || '',
+            'jobTitle':      user.title      || '',
+            'phoneNumber':   user.phone      || '',
+            'location':      user.location   || '',
+            'company':       user.company    || '',
+            'manager':       user.manager    || '',
+            'source':        'ServiceNow Backend',
+            'isAuthenticated': 'true'
+        });
+
+        // 8. Auto-launch only if user has NOT minimized the chat
+        var CHAT_MINIMIZED_KEY_LOCAL = 'amazonConnectChatMinimized';
+
+        amazon_connect('onClose', function() {
+            sessionStorage.setItem(CHAT_MINIMIZED_KEY_LOCAL, 'true');
+        });
+
+        amazon_connect('onOpen', function() {
+            sessionStorage.removeItem(CHAT_MINIMIZED_KEY_LOCAL);
+            // Restore maximized state if it was saved
+            if (sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true') {
+                applyMaximizedState(true);
+            }
+        });
+
+
+
+        // 9. Initialize maximize button
+        initMaximizeButton();
+    }
+
+    // === MAXIMIZE/MINIMIZE — SIMPLE CSS CLASS TOGGLE ===
+    function applyMaximizedState(maximized) {
+        var containers = document.querySelectorAll('div[id*="amazon-connect"]');
+        for (var i = 0; i < containers.length; i++) {
+            if (maximized) {
+                containers[i].classList.add('aws-chat-maximized');
+            } else {
+                containers[i].classList.remove('aws-chat-maximized');
+            }
+        }
+        var btn = document.querySelector('.aws-chat-maximize-btn');
+        if (btn) {
+            if (maximized) {
+                btn.classList.add('is-maximized');
+                btn.innerHTML = MINIMIZE_ICON;
+                btn.setAttribute('title', 'Minimize chat');
+                btn.setAttribute('aria-label', 'Minimize chat');
+            } else {
+                btn.classList.remove('is-maximized');
+                btn.innerHTML = MAXIMIZE_ICON;
+                btn.setAttribute('title', 'Maximize chat');
+                btn.setAttribute('aria-label', 'Maximize chat');
+            }
+        }
+    }
+
+    function initMaximizeButton() {
+        // Create the button immediately — always visible
+        var btn = document.createElement('button');
+        btn.className = 'aws-chat-maximize-btn';
+        btn.innerHTML = MAXIMIZE_ICON;
+        btn.setAttribute('title', 'Maximize chat');
+        btn.setAttribute('aria-label', 'Maximize chat');
+
+        btn.addEventListener('click', function() {
+            var isMaximized = sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true';
+            var newState = !isMaximized;
+            sessionStorage.setItem(CHAT_MAXIMIZED_KEY, newState ? 'true' : 'false');
+            applyMaximizedState(newState);
+        });
+
+        document.body.appendChild(btn);
+
+        // Restore state if chat was already maximized
+        if (sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true') {
+            applyMaximizedState(true);
+        }
+    }
+
+})();
+]]>
+</script>
+
+</j:jelly>
