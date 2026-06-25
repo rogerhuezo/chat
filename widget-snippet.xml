@@ -185,11 +185,7 @@ div[id*="amazon-connect"].aws-chat-maximized iframe {
             }
         });
 
-        if (sessionStorage.getItem(CHAT_MINIMIZED_KEY_LOCAL) !== 'true') {
-            amazon_connect('customLaunchBehavior', {
-                skipIconButtonAndAutoLaunch: true
-            });
-        }
+
 
         // 9. Initialize maximize button
         initMaximizeButton();
