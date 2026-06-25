@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
+
+<style type="text/css">
+div[id*="amazon-connect"] button,
+div[id*="amazon-connect"] .launcher {
+    border-radius: 50% !important;
+}
+
+/* Maximize/Minimize Toggle Button */
+.aws-chat-maximize-btn {
+    position: fixed;
+    z-index: 2147483647;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(18, 52, 86, 0.85);
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+}
+.aws-chat-maximize-btn:hover {
+    background: rgba(18, 52, 86, 1);
+}
+.aws-chat-maximize-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+</style>
+
+<script type="text/javascript">
+<![CDATA[
+(function() {
+    'use strict';
+
+    // Prevent double loading
+    if (window.hasInitializedAWSConnect) return;
+    window.hasInitializedAWSConnect = true;
+
+    // === CONSTANTS ===
+    var CHAT_MINIMIZED_KEY = 'amazonConnectChatMinimized';
+    var CHAT_MAXIMIZED_KEY = 'amazonConnectChatMaximized';
+
+    var NORMAL_WIDTH = '600px';
+    var NORMAL_HEIGHT = '800px';
+    var MAXIMIZED_WIDTH = 'calc(100vw - 40px)';
+    var MAXIMIZED_HEIGHT = 'calc(100vh - 40px)';
+
+    // SVG icons for maximize/minimize
+    var MAXIMIZE_ICON = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1h13a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5zm0 1a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-11z" fill="currentColor"/><path d="M5.5 5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V6H5.5a.5.5 0 0 1 0-1z" fill="currentColor"/></svg>';
+    var MINIMIZE_ICON = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1h13a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5zm0 1a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-11z" fill="currentColor"/><path d="M10.5 11h-5a.5.5 0 0 1-.5-.5v-5a.5.5 0 0 1 1 0V10h4.5a.5.5 0 0 1 0 1z" fill="currentColor"/></svg>';
+
+    // === FETCH USER DATA VIA GLIDEAJAX ===
+    var ga = new GlideAjax("SKX_getUserDetails");
+    ga.addParam("sysparm_name", "getChatInitData");
+    ga.getXMLAnswer(function(response) {
+
+        if (!response) return;
+
+        try {
+            var data = JSON.parse(response);
+            console.log('[AWS Chat Debug]', JSON.stringify(data.user));
+
+            // Security check - abort if not authenticated
+            if (!data.user || !data.user.userID) return;
+
+            // Config check
+            if (!data.config || !data.config.instanceId) return;
+
+            initializeWidget(data.config, data.user);
+
+        } catch(e) {
+            console.error('[AWS Chat Backend]: Error parsing response: ' + e);
+        }
+    });
+
+    function initializeWidget(config, user) {
+
+        // 1. Inject NEW AWS Widget Script
+        (function(w, d, x, id) {
+            var s = d.createElement('script');
+            s.src = 'https://skx-prod-int.my.connect.aws/connectwidget/static/amazon-connect-chat-interface-client.js';
+            s.async = 1;
+            s.id = id;
+            d.getElementsByTagName('head')[0].appendChild(s);
+            w[x] = w[x] || function() {
+                (w[x].ac = w[x].ac || []).push(arguments);
+            };
+        })(window, document, 'amazon_connect', '957234ac-9601-4b31-9332-e182ca935577');
+
+        // 2. Styles
+        amazon_connect('styles', {
+            iconType: 'CHAT',
+            openChat:  { color: '#ffffff', backgroundColor: '#123456' },
+            closeChat: { color: '#ffffff', backgroundColor: '#123456' }
+        });
+
+        // 3. Custom Size - check if user had maximized state stored
+        var isMaximized = sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true';
+
+        amazon_connect('customStyles', {
+            global: {
+                frameWidth:  isMaximized ? MAXIMIZED_WIDTH : NORMAL_WIDTH,
+                frameHeight: isMaximized ? MAXIMIZED_HEIGHT : NORMAL_HEIGHT
+            }
+        });
+
+        // 4. Snippet ID (NEW)
+        amazon_connect('snippetId', 'QVFJREFIaFg3VVJ2dFRXb2IrUUdndUkvUzRJMnRnQ1NJL3Erc1JKT0lFQ3lCQlNlUEFFWEt1QlFsWnlTV0NnU1dSUFN4RjE3QUFBQWJqQnNCZ2txaGtpRzl3MEJCd2FnWHpCZEFnRUFNRmdHQ1NxR1NJYjNEUUVIQVRBZUJnbGdoa2dCWlFNRUFTNHdFUVFNSnpWeTJCU2JuK1FVcTE1Y0FnRVFnQ3VSeENLZFh6eVhwYkRKN1Rud0pkYVg1WFByaTVqQmp5M3dUUzBTcmJBNStVUGNxTzU4MndIWFZTcTA6Ok5xVHY1L3hLTFFISHpUbE1xL1k2VUpLa1hkcGduVU9oRHBGdENSTUxPQkJOU2VNZVFlRTBhOXBKZm9CMXlFajQ4cU50RzNTSFBRcHVVQW5WbGQyaXpyMFNYZnVyS0RyVGhLbEVyTGM1QkRsdVpxZmEwL005K2lhdmtQS0ZBVnd2UWl1TkgzR1BsOGZMektJNXo4N2lSM3dOQS9KaFowZz0=');
+
+        // 5. Supported content types (includes typing indicator content type)
+        amazon_connect('supportedMessagingContentTypes', [
+            'text/plain',
+            'text/markdown',
+            'application/vnd.amazonaws.connect.message.interactive',
+            'application/vnd.amazonaws.connect.message.interactive.response'
+        ]);
+
+        // 6. Typing indicator support
+        amazon_connect('showTypingIndicator', true);
+
+        // 7. Customer display name
+        amazon_connect('customerDisplayName', function(callback) {
+            callback(user.fullName);
+        });
+
+        // 8. Contact attributes - passed to Connect - Lex
+        amazon_connect('contactAttributes', {
+            'Name':          user.fullName   || '',
+            'UserInfo':      user.userID     || '',
+            'Details':       user.email      || '',
+            'Language':      'en',
+            'CountryCode':   user.country    || '',
+            'CountryName':   user.country    || '',
+            'Region':        user.location   || '',
+            'customerName':  user.fullName   || '',
+            'firstName':     user.firstName  || '',
+            'lastName':      user.lastName   || '',
+            'customerEmail': user.email      || '',
+            'department':    user.department || '',
+            'jobTitle':      user.title      || '',
+            'phoneNumber':   user.phone      || '',
+            'location':      user.location   || '',
+            'company':       user.company    || '',
+            'manager':       user.manager    || '',
+            'source':        'ServiceNow Backend',
+            'isAuthenticated': 'true'
+        });
+
+        // 9. Auto-launch only if user has NOT minimized the chat
+        amazon_connect('onClose', function() {
+            sessionStorage.setItem(CHAT_MINIMIZED_KEY, 'true');
+        });
+
+        amazon_connect('onOpen', function() {
+            sessionStorage.removeItem(CHAT_MINIMIZED_KEY);
+        });
+
+        if (sessionStorage.getItem(CHAT_MINIMIZED_KEY) !== 'true') {
+            amazon_connect('customLaunchBehavior', {
+                skipIconButtonAndAutoLaunch: true
+            });
+        }
+
+        // 10. Maximize/Minimize toggle button
+        initMaximizeButton();
+    }
+
+    // === MAXIMIZE/MINIMIZE BUTTON LOGIC ===
+    function initMaximizeButton() {
+        var maximizeBtn = null;
+        var isMaximized = sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true';
+
+        // Use MutationObserver to detect when the widget iframe appears
+        var observer = new MutationObserver(function(mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var mutation = mutations[i];
+                for (var j = 0; j < mutation.addedNodes.length; j++) {
+                    var node = mutation.addedNodes[j];
+                    if (node.nodeType === 1) {
+                        checkForWidgetFrame(node);
+                    }
+                }
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // Also check if the widget is already in the DOM
+        setTimeout(function() {
+            checkForWidgetFrame(document.body);
+        }, 2000);
+
+        function checkForWidgetFrame(root) {
+            // Look for the Amazon Connect chat iframe or container
+            var iframe = root.querySelector ? root.querySelector('iframe[id*="amazon-connect"], iframe[src*="amazon-connect"]') : null;
+            if (!iframe) {
+                // Try to find any div container with amazon-connect in the id
+                var containers = document.querySelectorAll('div[id*="amazon-connect"]');
+                if (containers.length > 0) {
+                    injectMaximizeButton(containers[containers.length - 1]);
+                }
+                return;
+            }
+            injectMaximizeButton(iframe.parentElement || iframe);
+        }
+
+        function injectMaximizeButton(widgetContainer) {
+            // Avoid duplicates
+            if (document.querySelector('.aws-chat-maximize-btn')) return;
+
+            maximizeBtn = document.createElement('button');
+            maximizeBtn.className = 'aws-chat-maximize-btn';
+            maximizeBtn.setAttribute('aria-label', isMaximized ? 'Minimize chat' : 'Maximize chat');
+            maximizeBtn.setAttribute('title', isMaximized ? 'Minimize chat' : 'Maximize chat');
+            maximizeBtn.innerHTML = isMaximized ? MINIMIZE_ICON : MAXIMIZE_ICON;
+
+            // Position the button relative to the widget container
+            positionButton(widgetContainer);
+
+            maximizeBtn.addEventListener('click', function() {
+                toggleMaximize(widgetContainer);
+            });
+
+            document.body.appendChild(maximizeBtn);
+
+            // Re-position the button when the widget frame changes position
+            var repositionInterval = setInterval(function() {
+                if (!document.body.contains(maximizeBtn)) {
+                    clearInterval(repositionInterval);
+                    return;
+                }
+                positionButton(widgetContainer);
+            }, 1000);
+        }
+
+        function positionButton(widgetContainer) {
+            if (!maximizeBtn) return;
+
+            // Find the actual iframe or widget wrapper
+            var iframe = widgetContainer.querySelector('iframe') || widgetContainer;
+            var rect = iframe.getBoundingClientRect();
+
+            if (rect.width === 0 || rect.height === 0) {
+                // Widget not visible yet, hide button
+                maximizeBtn.style.display = 'none';
+                return;
+            }
+
+            maximizeBtn.style.display = 'flex';
+            // Position at top-right of the chat window, inside the header area
+            maximizeBtn.style.top = (rect.top + 8) + 'px';
+            maximizeBtn.style.right = (window.innerWidth - rect.right + 40) + 'px';
+        }
+
+        function toggleMaximize(widgetContainer) {
+            isMaximized = !isMaximized;
+            sessionStorage.setItem(CHAT_MAXIMIZED_KEY, isMaximized ? 'true' : 'false');
+
+            // Update button icon and label
+            if (maximizeBtn) {
+                maximizeBtn.innerHTML = isMaximized ? MINIMIZE_ICON : MAXIMIZE_ICON;
+                maximizeBtn.setAttribute('aria-label', isMaximized ? 'Minimize chat' : 'Maximize chat');
+                maximizeBtn.setAttribute('title', isMaximized ? 'Minimize chat' : 'Maximize chat');
+            }
+
+            // Apply new dimensions via customStyles
+            var newWidth = isMaximized ? MAXIMIZED_WIDTH : NORMAL_WIDTH;
+            var newHeight = isMaximized ? MAXIMIZED_HEIGHT : NORMAL_HEIGHT;
+
+            amazon_connect('customStyles', {
+                global: {
+                    frameWidth: newWidth,
+                    frameHeight: newHeight
+                }
+            });
+
+            // Also directly manipulate the iframe styles as a fallback
+            var iframe = widgetContainer.querySelector('iframe') || widgetContainer;
+            if (iframe && iframe.style) {
+                iframe.style.width = newWidth;
+                iframe.style.height = newHeight;
+                if (isMaximized) {
+                    iframe.style.maxWidth = 'calc(100vw - 40px)';
+                    iframe.style.maxHeight = 'calc(100vh - 40px)';
+                } else {
+                    iframe.style.maxWidth = '';
+                    iframe.style.maxHeight = '';
+                }
+            }
+
+            // Re-position the button after resize
+            setTimeout(function() {
+                positionButton(widgetContainer);
+            }, 300);
+        }
+    }
+
+})();
+]]>
+</script>
+
+</j:jelly>
