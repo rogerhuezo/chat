@@ -17,41 +17,32 @@ div[id*="amazon-connect"].aws-chat-maximized iframe {
     bottom: 20px !important;
 }
 
-/* Maximize/Minimize Toggle Button */
+/* Maximize/Minimize Toggle Button — positioned top-right of chat window */
 .aws-chat-maximize-btn {
     position: fixed;
-    bottom: 815px;
-    right: 25px;
+    top: 8px;
+    right: 8px;
     z-index: 2147483647;
     width: 32px;
     height: 32px;
     border: none;
     border-radius: 6px;
-    background: rgba(18, 52, 86, 0.9);
+    background: rgba(255, 255, 255, 0.25);
     color: #ffffff;
     cursor: pointer;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    transition: background 0.2s ease, bottom 0.3s ease;
+    transition: background 0.2s ease;
 }
 .aws-chat-maximize-btn:hover {
-    background: rgba(18, 52, 86, 1);
-}
-.aws-chat-maximize-btn.visible {
-    display: flex;
+    background: rgba(255, 255, 255, 0.4);
 }
 .aws-chat-maximize-btn svg {
     width: 18px;
     height: 18px;
     fill: currentColor;
-}
-/* When maximized, move button to top-right area */
-.aws-chat-maximize-btn.is-maximized {
-    bottom: auto;
-    top: 28px;
-    right: 68px;
 }
 </style>
 
@@ -169,16 +160,10 @@ div[id*="amazon-connect"].aws-chat-maximized iframe {
 
         amazon_connect('onClose', function() {
             sessionStorage.setItem(CHAT_MINIMIZED_KEY_LOCAL, 'true');
-            // Hide maximize button when chat is closed
-            var btn = document.querySelector('.aws-chat-maximize-btn');
-            if (btn) btn.classList.remove('visible');
         });
 
         amazon_connect('onOpen', function() {
             sessionStorage.removeItem(CHAT_MINIMIZED_KEY_LOCAL);
-            // Show maximize button when chat is open
-            var btn = document.querySelector('.aws-chat-maximize-btn');
-            if (btn) btn.classList.add('visible');
             // Restore maximized state if it was saved
             if (sessionStorage.getItem(CHAT_MAXIMIZED_KEY) === 'true') {
                 applyMaximizedState(true);
@@ -218,7 +203,7 @@ div[id*="amazon-connect"].aws-chat-maximized iframe {
     }
 
     function initMaximizeButton() {
-        // Create the button immediately
+        // Create the button immediately — always visible
         var btn = document.createElement('button');
         btn.className = 'aws-chat-maximize-btn';
         btn.innerHTML = MAXIMIZE_ICON;
