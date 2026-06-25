@@ -70,7 +70,10 @@
     },
     {
       "Parameters": {
-        "TimeoutSeconds": "120"
+        "Timeout": {
+          "Value": 120,
+          "Unit": "Seconds"
+        }
       },
       "Identifier": "b2c3d4e5-f6a7-8b9c-0d1e-f2a3b4c5d6e7",
       "Type": "Wait",
@@ -102,7 +105,10 @@
     },
     {
       "Parameters": {
-        "TimeoutSeconds": "120"
+        "Timeout": {
+          "Value": 120,
+          "Unit": "Seconds"
+        }
       },
       "Identifier": "d4e5f6a7-b8c9-0d1e-2f3a-b4c5d6e7f8a9",
       "Type": "Wait",
